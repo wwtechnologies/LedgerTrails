@@ -34,14 +34,17 @@ for rel,pkg in lock['packages'].items():
 if platform.system()=='Linux':
     # The AppImage bundles system libraries. Include installed distribution notices
     # and package coordinates, in addition to application dependency notices.
-    packages=subprocess.check_output(['dpkg-query','-W','-f=${binary:Package}\t${Version}\t${source:Package}\t${source:Version}\n'],text=True)
-    (out/'SYSTEM-PACKAGES.txt').write_text(packages)
-    for copyright in pathlib.Path('/usr/share/doc').glob('*/copyright'):
-        if copyright.is_file():
-            dest=out/'system'/copyright.parent.name
-            dest.mkdir(parents=True,exist_ok=True)
-            shutil.copy2(copyright,dest/'copyright')
-    (out/'SYSTEM-SOURCES.txt').write_text('Built on Ubuntu 24.04. Exact installed binary/source package versions are in SYSTEM-PACKAGES.txt. Distribution source archives: https://archive.ubuntu.com/ubuntu/pool/ and https://security.ubuntu.com/ubuntu/pool/. Each package copyright file contains its upstream source and license. Use apt-get source PACKAGE=SOURCE_VERSION with Ubuntu source repositories enabled. The AppImage permits replacing/relinking its shared libraries by extracting its contents with --appimage-extract.\n')
+    if shutil.which('dpkg-query'):
+        packages=subprocess.check_output(['dpkg-query','-W','-f=${binary:Package}\t${Version}\t${source:Package}\t${source:Version}\n'],text=True)
+        (out/'SYSTEM-PACKAGES.txt').write_text(packages)
+        for copyright in pathlib.Path('/usr/share/doc').glob('*/copyright'):
+            if copyright.is_file():
+                dest=out/'system'/copyright.parent.name
+                dest.mkdir(parents=True,exist_ok=True)
+                shutil.copy2(copyright,dest/'copyright')
+        (out/'SYSTEM-SOURCES.txt').write_text('Built on Ubuntu 24.04. Exact installed binary/source package versions are in SYSTEM-PACKAGES.txt. Distribution source archives: https://archive.ubuntu.com/ubuntu/pool/ and https://security.ubuntu.com/ubuntu/pool/. Each package copyright file contains its upstream source and license. Use apt-get source PACKAGE=SOURCE_VERSION with Ubuntu source repositories enabled. The AppImage permits replacing/relinking its shared libraries by extracting its contents with --appimage-extract.\n')
+    else:
+        (out/'SYSTEM-SOURCES.txt').write_text('System package source coordinates were not collected because dpkg-query was unavailable on this Linux build host. Application dependency source coordinates are in DEPENDENCIES.json. The AppImage permits replacing/relinking its shared libraries by extracting its contents with --appimage-extract.\n')
 (out/'DEPENDENCIES.json').write_text(json.dumps(records,indent=2)+'\n')
-(out/'SOURCES.txt').write_text('LedgerTrails source: https://github.com/wwtechnologies/LedgerTrails/tree/v0.1.1\nExact Rust and npm dependency source downloads are in DEPENDENCIES.json. Bundled hledger 1.52.1 source and license accompany this release separately.\n')
+(out/'SOURCES.txt').write_text('LedgerTrails source: https://github.com/wwtechnologies/LedgerTrails/tree/v0.1.2\nExact Rust and npm dependency source downloads are in DEPENDENCIES.json. Bundled hledger 1.52.1 source and license accompany this release separately.\n')
 print(f'Collected notices for {len(records)} dependencies into {out}')
