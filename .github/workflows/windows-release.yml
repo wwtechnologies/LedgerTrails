@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 jobs:
-  package:
+  check:
     runs-on: windows-latest
     env:
       PYTHONUTF8: "1"
