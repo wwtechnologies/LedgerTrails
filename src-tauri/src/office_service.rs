@@ -587,8 +587,8 @@ pub(crate) fn run_host(folder: PathBuf, shutdown: Arc<AtomicBool>) -> Result<()>
     result
 }
 pub fn cli(arguments: &[String]) -> Option<Result<()>> {
-    let command = arguments.get(1)?;
-    if !command.starts_with("--office-") {
+    let entrypoint = arguments.get(1)?;
+    if !entrypoint.starts_with("--office-") {
         return None;
     }
     Some((|| {
@@ -605,7 +605,7 @@ pub fn cli(arguments: &[String]) -> Option<Result<()>> {
             return Err("Configuration directory must be absolute".into());
         }
         let office = Office::new(folder.clone());
-        match command.as_str() {
+        match entrypoint.as_str() {
             "--office-server" => run_host(folder, Arc::new(AtomicBool::new(false))),
             #[cfg(windows)]
             "--office-windows-service" => windows::dispatch(folder),
