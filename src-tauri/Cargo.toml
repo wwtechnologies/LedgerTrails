@@ -2,6 +2,7 @@
 name = "ledgertrails"
 version = "0.1.0"
 description = "Local desktop accounting powered by hledger"
+license = "GPL-3.0-or-later"
 authors = ["you"]
 edition = "2021"
 

@@ -131,3 +131,19 @@ Tax → Estimates supports 2025 and 2026 for sole proprietors/single-member LLCs
 Choose recorded profit, a straight-line year-to-date forecast, or a reviewed annual Schedule C profit. Missing records produce a setup message rather than a zero-tax estimate. Recorded profit is not a forecast of remaining-year activity; unresolved categories and manual book-to-tax adjustments require review. QBI is a reviewed manual input. Other personal income and withholding default to zero and must be checked. Special rates, AMT, NIIT, loss limitations, spouse self-employment, and part-year state allocations are not calculated automatically.
 
 Minimum installment targets use current-year/prior-year rules; the full-tax option budgets for the projected total. Payment tracking records payments already made and does not send money or post journal entries. Payments are matched by effective date, so a later catch-up payment does not erase an earlier deadline gap. No penalty is calculated. Review the linked official guidance before applying disaster-relief deadline overrides. Rules verified October 4, 2026.
+
+## License
+
+Copyright (C) 2026 LedgerTrails contributors.
+
+LedgerTrails is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version (SPDX: `GPL-3.0-or-later`).
+
+LedgerTrails is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full terms.
+
+Commercial use is permitted. When distributing modified versions, the GPL requires corresponding source code and preservation of the applicable license and notices. Your company files, imported transactions, and reports are your data; this software license does not require publishing them.
+
+### Third-party software
+
+Dependencies retain their own licenses and copyright notices. [hledger](https://github.com/hledgerorg/hledger) is copyright Simon Michael and contributors and is licensed under GPL-3.0-or-later. The build downloads the unmodified hledger 1.52.1 executable; its source is available at [the matching release tag](https://github.com/hledgerorg/hledger/tree/1.52.1).
+
+When publishing desktop binaries, include the applicable dependency notices and licenses, and provide corresponding source for GPL-covered components, including the bundled hledger version, as required by the GPL. A LedgerTrails source checkout alone does not include hledger's source. This repository publishes source code; downloaded sidecar binaries and private financial data are excluded from Git.
