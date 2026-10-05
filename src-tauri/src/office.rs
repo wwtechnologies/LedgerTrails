@@ -7,6 +7,7 @@ use axum::{
     Json, Router,
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -38,6 +39,8 @@ struct User {
 struct Config {
     version: u32,
     enabled: bool,
+    #[serde(default)]
+    service_mode: bool,
     address: String,
     port: u16,
     company: String,
@@ -50,6 +53,7 @@ impl Default for Config {
         Self {
             version: 1,
             enabled: false,
+            service_mode: false,
             address: suggested_address(),
             port: 47831,
             company: String::new(),
@@ -125,6 +129,41 @@ fn save_json(folder: &Path, name: &str, value: &impl Serialize) -> Result<()> {
     temp.persist(folder.join(name)).map_err(err)?;
     Ok(())
 }
+pub(crate) struct FileLease(fs::File);
+impl Drop for FileLease {
+    fn drop(&mut self) {
+        let _ = FileExt::unlock(&self.0);
+    }
+}
+fn lease(folder: &Path, name: &str, wait: bool) -> Result<FileLease> {
+    fs::create_dir_all(folder).map_err(err)?;
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(folder.join(name))
+        .map_err(err)?;
+    if wait {
+        file.lock_exclusive().map_err(err)?;
+    } else {
+        file.try_lock_exclusive().map_err(err)?;
+    }
+    Ok(FileLease(file))
+}
+fn read_config(folder: &Path) -> Result<Config> {
+    match fs::read(folder.join("server.json")) {
+        Ok(bytes) => {
+            let config: Config = serde_json::from_slice(&bytes).map_err(err)?;
+            if config.version != 1 {
+                return Err("Unsupported office settings version".into());
+            }
+            Ok(config)
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Config::default()),
+        Err(e) => Err(err(e)),
+    }
+}
 impl Office {
     pub fn new(folder: PathBuf) -> Self {
         let loaded = match fs::read(folder.join("server.json")) {
@@ -163,14 +202,63 @@ impl Office {
             slots: Arc::new(tokio::sync::Semaphore::new(16)),
         }))
     }
+    pub(crate) fn folder(&self) -> &Path {
+        &self.0.folder
+    }
+    fn reload(&self) -> Result<Config> {
+        let _settings = lease(&self.0.folder, "settings.lock", true)?;
+        let config = read_config(&self.0.folder)?;
+        self.0.inner.lock().map_err(err)?.config = config.clone();
+        Ok(config)
+    }
+    pub(crate) fn is_host_running(&self) -> Result<bool> {
+        fs::create_dir_all(&self.0.folder).map_err(err)?;
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(self.0.folder.join("host.lock"))
+            .map_err(err)?;
+        match file.try_lock_exclusive() {
+            Ok(()) => {
+                let _ = FileExt::unlock(&file);
+                Ok(false)
+            }
+            Err(e)
+                if e.kind() == std::io::ErrorKind::WouldBlock
+                    || e.raw_os_error() == fs2::lock_contended_error().raw_os_error() =>
+            {
+                Ok(true)
+            }
+            Err(e) => Err(err(e)),
+        }
+    }
+    pub(crate) fn set_service_mode(&self, mode: bool, enabled: bool) -> Result<()> {
+        let _settings = lease(&self.0.folder, "settings.lock", true)?;
+        let mut config = read_config(&self.0.folder)?;
+        config.service_mode = mode;
+        config.enabled = enabled;
+        save_json(&self.0.folder, "server.json", &config)?;
+        self.0.inner.lock().map_err(err)?.config = config;
+        Ok(())
+    }
+    pub(crate) fn service_settings(&self) -> Result<(bool, bool, String)> {
+        let c = self.reload()?;
+        Ok((c.service_mode, c.enabled, c.company))
+    }
     pub fn status(&self) -> Result<Value> {
+        let config = self.reload()?;
+        let running = self.is_host_running()?;
+        let service = crate::office_service::status(&self.0.folder);
         let inner = self.0.inner.lock().map_err(err)?;
         Ok(
-            json!({"enabled":inner.config.enabled,"running":self.0.running.load(Ordering::SeqCst),"address":inner.config.address,"port":inner.config.port,"company":inner.config.company,"error":inner.error,"users":inner.config.users.iter().map(|u|json!({"id":u.id,"name":u.name,"role":u.role})).collect::<Vec<_>>(),"savedConnection":inner.peer.as_ref().map(|p|format!("{}:{}",p.address,p.port))}),
+            json!({"enabled":inner.config.enabled,"running":running,"serviceMode":config.service_mode,"service":service,"address":inner.config.address,"port":inner.config.port,"company":inner.config.company,"error":inner.error,"users":inner.config.users.iter().map(|u|json!({"id":u.id,"name":u.name,"role":u.role})).collect::<Vec<_>>(),"savedConnection":inner.peer.as_ref().map(|p|format!("{}:{}",p.address,p.port))}),
         )
     }
     pub async fn start(&self) -> Result<()> {
         let _ = rustls::crypto::ring::default_provider().install_default();
+        self.reload()?;
         let config = {
             let inner = self.0.inner.lock().map_err(err)?;
             if inner.handle.is_some() {
@@ -181,6 +269,8 @@ impl Office {
         if config.company.is_empty() {
             return Err("Choose a company to share first".into());
         }
+        let host_lease = lease(&self.0.folder, "host.lock", false)
+            .map_err(|_| "Another LedgerTrails host is already running for these settings")?;
         // Validate the selected company without holding any async mutex.
         let company = config.company.clone();
         tauri::async_runtime::spawn_blocking(move || company::snapshot(Path::new(&company)))
@@ -205,7 +295,19 @@ impl Office {
             .layer(DefaultBodyLimit::max(LIMIT))
             .with_state(self.clone());
         {
+            let _settings = lease(&self.0.folder, "settings.lock", true)?;
+            let fresh = read_config(&self.0.folder)?;
+            if fresh.enabled != config.enabled
+                || fresh.service_mode != config.service_mode
+                || fresh.company != config.company
+                || fresh.address != config.address
+                || fresh.port != config.port
+                || fresh.certificate != config.certificate
+            {
+                return Err("Host settings changed during startup; try again".into());
+            }
             let mut inner = self.0.inner.lock().map_err(err)?;
+            inner.config = fresh;
             if inner.handle.is_some() {
                 return Err("Office server is already running".into());
             }
@@ -223,6 +325,7 @@ impl Office {
                 .handle(handle)
                 .serve(router.into_make_service())
                 .await;
+            drop(host_lease);
             service.0.running.store(false, Ordering::SeqCst);
             if let Ok(mut inner) = service.0.inner.lock() {
                 inner.handle = None;
@@ -233,9 +336,16 @@ impl Office {
         });
         Ok(())
     }
+    pub(crate) fn stop_runtime(&self) -> Result<()> {
+        if let Some(handle) = &self.0.inner.lock().map_err(err)?.handle {
+            handle.graceful_shutdown(Some(Duration::from_secs(10)));
+        }
+        Ok(())
+    }
     pub fn stop(&self) -> Result<()> {
+        let _settings = lease(&self.0.folder, "settings.lock", true)?;
         let mut inner = self.0.inner.lock().map_err(err)?;
-        let mut config = inner.config.clone();
+        let mut config = read_config(&self.0.folder)?;
         config.enabled = false;
         save_json(&self.0.folder, "server.json", &config)?;
         inner.config = config;
@@ -256,8 +366,10 @@ impl Office {
             return Err("Choose a working .bky company file".into());
         }
         company::snapshot(&path)?;
+        let _settings = lease(&self.0.folder, "settings.lock", true)?;
         let mut inner = self.0.inner.lock().map_err(err)?;
-        if inner.handle.is_some() {
+        inner.config = read_config(&self.0.folder)?;
+        if self.is_host_running()? || inner.handle.is_some() {
             return Err("Stop hosting before changing the shared company or address".into());
         }
         if inner.error.is_some() && !self.0.folder.join("server.json").exists() {
@@ -292,7 +404,9 @@ impl Office {
             return Err("Enter a coworker name and choose read-only or editor access".into());
         }
         let token = secret()?;
+        let _settings = lease(&self.0.folder, "settings.lock", true)?;
         let mut inner = self.0.inner.lock().map_err(err)?;
+        inner.config = read_config(&self.0.folder)?;
         if inner.config.certificate.is_empty() {
             return Err("Set up the host first".into());
         }
@@ -321,7 +435,9 @@ impl Office {
         Ok(format!("LT1-{code}"))
     }
     pub fn revoke(&self, id: &str) -> Result<()> {
+        let _settings = lease(&self.0.folder, "settings.lock", true)?;
         let mut inner = self.0.inner.lock().map_err(err)?;
+        inner.config = read_config(&self.0.folder)?;
         let mut c = inner.config.clone();
         c.users.retain(|u| u.id != id);
         save_json(&self.0.folder, "server.json", &c)?;
@@ -329,6 +445,7 @@ impl Office {
         Ok(())
     }
     fn authenticate(&self, token: &str) -> Result<User> {
+        self.reload()?;
         let inner = self.0.inner.lock().map_err(err)?;
         if !inner.config.enabled {
             return Err("Office server is stopped".into());
@@ -345,7 +462,7 @@ impl Office {
     fn dispatch(&self, user: &User, request: Rpc) -> Result<Value> {
         let _operation = self.0.operations.lock().map_err(err)?;
         // Recheck permissions after waiting, so revocation applies to queued requests too.
-        let config = self.0.inner.lock().map_err(err)?.config.clone();
+        let config = self.reload()?;
         if !config.enabled || !config.users.iter().any(|u| u.id == user.id) {
             return Err("Access has been revoked or hosting stopped".into());
         }
@@ -666,8 +783,9 @@ pub async fn office_history(state: tauri::State<'_, Office>) -> Result<Value> {
     .await
 }
 #[tauri::command]
-pub fn office_status(state: tauri::State<'_, Office>) -> Result<Value> {
-    state.status()
+pub async fn office_status(state: tauri::State<'_, Office>) -> Result<Value> {
+    let s = state.inner().clone();
+    crate::blocking(move || s.status()).await
 }
 #[tauri::command]
 pub async fn office_configure(
@@ -685,14 +803,19 @@ pub async fn office_configure(
 }
 #[tauri::command]
 pub async fn office_start(state: tauri::State<'_, Office>) -> Result<Value> {
-    state.start().await?;
+    if state.service_settings()?.0 {
+        let s = state.inner().clone();
+        crate::blocking(move || crate::office_service::control(&s, "start")).await?;
+    } else {
+        state.start().await?;
+    }
     state.status()
 }
 #[tauri::command]
 pub async fn office_stop(state: tauri::State<'_, Office>) -> Result<Value> {
     state.stop()?;
     for _ in 0..60 {
-        if !state.0.running.load(Ordering::SeqCst) {
+        if !state.is_host_running()? {
             break;
         }
         tokio::time::sleep(Duration::from_millis(200)).await;
@@ -731,7 +854,8 @@ pub async fn office_request(
 }
 pub fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let office = Office::new(app.path().app_config_dir()?.join("office"));
-    let enabled = office.0.inner.lock().map_err(err)?.config.enabled;
+    let config = office.0.inner.lock().map_err(err)?.config.clone();
+    let enabled = config.enabled && !config.service_mode;
     app.manage(office.clone());
     if enabled {
         tauri::async_runtime::spawn(async move {

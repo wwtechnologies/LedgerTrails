@@ -48,12 +48,30 @@ On the host computer:
 
 1. Create or open the company normally. Keep the working `.bky` file on the host's local disk, with space for its automatic backups.
 2. Open **Office network**, choose **Company to share**, and check the computer's private IPv4 address and TCP port (default `47831`). The suggested address may need changing on computers with several network interfaces.
-3. Click **Enable hosting**. Allow inbound TCP connections to that port from your office subnet using your operating system's firewall. LedgerTrails does not change firewall rules or router settings. Reserve the host's address in your router so it stays the same.
+3. Click **Enable hosting** for hosting while the app is open, or **Install background service** for unattended hosting. Allow inbound TCP connections to that port from your office subnet using your operating system's firewall. LedgerTrails does not change firewall rules or router settings. Reserve the host's address in your router so it stays the same.
 4. Create a named access code for each coworker, selecting **Editor** or **Read-only**, and transfer that code privately. The code is a credential: anyone possessing it has that coworker's access until revoked.
 
 On each workstation, open **Office network**, paste the code, and select **Connect**. The connection is remembered on that computer; use **Reconnect** next time. Opening a local company returns to local mode. You do not mount a network drive or browse the host's files.
 
-Hosting resumes when the host opens LedgerTrails, until **Turn off hosting** is selected. The host computer must remain awake and the app must remain running. This is an in-app server, not an installed background service: it does not start at OS boot or keep serving after the app closes. Use **Refresh server status** if the state changes outside the setup dialog. Address, port, or shared-company changes invalidate old codes; generate replacement codes afterward. **Revoke** removes a coworker's access without changing the company.
+App hosting resumes when LedgerTrails opens and stops when it closes. Background service hosting runs independently of the window and starts at OS boot. The host computer must remain powered on and awake, with its company disk available. Service startup retries while waiting for its configured network address or disk.
+
+### Background service (Linux, macOS, Windows)
+
+After selecting a company and network address, click **Install background service** and accept the operating system's administrator prompt. An existing in-app host is stopped before the service takes over. No desktop login or open LedgerTrails window is required once the host's disk is accessible. Full-disk encryption may require unlocking the computer after a cold boot.
+
+| Platform | Native service                                   | Identity                                                     |
+| -------- | ------------------------------------------------ | ------------------------------------------------------------ |
+| Linux    | System-level systemd unit enabled at boot        | The OS user who installs it                                  |
+| macOS    | System launchd LaunchDaemon                      | The OS user who installs it                                  |
+| Windows  | Automatic Windows Service with recovery restarts | Dedicated `NT SERVICE\ledgertrails-office-…` virtual account |
+
+Linux needs systemd and `pkexec` with a desktop authentication agent. macOS uses the system administrator prompt; Windows uses UAC. On Windows, installation grants the service account Modify access to the office configuration folder and the selected company's parent folder (including backups). Keep that company in a dedicated local folder. Removal revokes those grants. On macOS, use a local folder accessible to the service; privacy-protected or cloud-only folders can require additional OS permissions.
+
+**Turn off hosting** pauses access persistently, including after a service restart or reboot. **Enable hosting** resumes it. **Update service to this app version** replaces its private executable copy after an app upgrade; the installed service does not update automatically. **Remove background service** stops and unregisters it, keeping the company, backups, and access codes. Remove the service before changing the shared company or address, then reinstall it. Address, port, or company changes invalidate old codes; generate replacements afterward.
+
+Server status refreshes while this dialog is open. The service log path appears below its controls. Coworker invitations and revocations take effect without restarting the service. File locks prevent the app and service from hosting the same configuration simultaneously.
+
+For unattended administration, the executable supports `--office-server --config-dir <absolute-office-settings-directory>` without creating a GUI. Native installers invoke this entry point (Windows uses the SCM-specific entry point). `--office-check` reports status as JSON. `--office-service-prepare` writes the installation manifest as the ordinary host user; `--office-service-admin install|update|start|stop|remove` applies it with administrator rights. Prefer the desktop controls for normal setup. The configuration directory must be the office subdirectory used by that host, not a company file path.
 
 ### Shared work and permissions
 

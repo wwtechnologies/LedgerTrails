@@ -12,6 +12,14 @@ const actionLabels: Record<string, string> = {
   "local change": "Changed books on the host",
 };
 interface Status {
+  serviceMode?: boolean;
+  service?: {
+    installed: boolean;
+    running: boolean;
+    manager: string;
+    logPath: string;
+    detail?: { error?: string | null } | null;
+  };
   enabled: boolean;
   running: boolean;
   address: string;
@@ -68,6 +76,21 @@ export default function OfficeNetwork({
       active = false;
     };
   }, []);
+  useEffect(() => {
+    if (busy) return;
+    let active = true;
+    const timer = setInterval(() => {
+      invoke<Status>("office_status")
+        .then((s) => {
+          if (active) setStatus(s);
+        })
+        .catch(() => {});
+    }, 2000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [busy]);
   async function task(fn: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -75,6 +98,11 @@ export default function OfficeNetwork({
       await fn();
     } catch (e) {
       setError(String(e));
+      try {
+        setStatus(await invoke<Status>("office_status"));
+      } catch {
+        /* Keep the original error. */
+      }
     } finally {
       setBusy(false);
     }
@@ -181,9 +209,10 @@ export default function OfficeNetwork({
       <section className="office-section">
         <h3>Host on this computer</h3>
         <p>
-          The company stays on this computer. Keep it awake with LedgerTrails
-          running. Once enabled, hosting resumes whenever LedgerTrails opens.
-          Closing the app stops access.
+          The company stays on this computer. Keep the computer awake. App
+          hosting runs while LedgerTrails is open. Install the background
+          service to host without an open window and start automatically when
+          this computer boots.
         </p>
         {status && (
           <p role="status">
@@ -203,7 +232,9 @@ export default function OfficeNetwork({
         </label>
         <button
           className="secondary"
-          disabled={busy || !status || status.running}
+          disabled={
+            busy || !status || status.running || status.service?.installed
+          }
           onClick={() =>
             task(async () => {
               const chosen = await open({
@@ -222,7 +253,7 @@ export default function OfficeNetwork({
             Host IPv4 address
             <input
               value={address}
-              disabled={busy || status?.running}
+              disabled={busy || status?.running || status?.service?.installed}
               onChange={(e) => setAddress(e.target.value)}
             />
           </label>
@@ -233,7 +264,7 @@ export default function OfficeNetwork({
               min={1024}
               max={65535}
               value={port}
-              disabled={busy || status?.running}
+              disabled={busy || status?.running || status?.service?.installed}
               onChange={(e) => setPort(Number(e.target.value))}
             />
           </label>
@@ -266,7 +297,8 @@ export default function OfficeNetwork({
                 await invoke("office_stop");
                 setStatus(await invoke<Status>("office_status"));
               } else {
-                await invoke("office_configure", { path, address, port });
+                if (!status?.serviceMode)
+                  await invoke("office_configure", { path, address, port });
                 setInvite("");
                 setStatus(await invoke<Status>("office_start"));
               }
@@ -285,6 +317,86 @@ export default function OfficeNetwork({
           Refresh server status
         </button>
       </section>
+      {status && (
+        <section className="office-section">
+          <h3>Background service</h3>
+          <p>
+            Uses{" "}
+            {status.service?.manager ??
+              "your operating system’s service manager"}
+            . Installing, updating, or removing the service requires
+            administrator approval. Closing LedgerTrails will leave the service
+            running.
+          </p>
+          <p role="status">
+            {status.service?.installed
+              ? status.service.running
+                ? "Service is running"
+                : "Service is stopped"
+              : "Service is not installed"}
+          </p>
+          {status.service?.running && status.service.detail?.error && (
+            <p className="banner error" role="alert">
+              {status.service.detail.error}
+            </p>
+          )}
+          <button
+            className="secondary"
+            disabled={
+              busy ||
+              !path ||
+              !address ||
+              !Number.isInteger(port) ||
+              port < 1024 ||
+              port > 65535
+            }
+            onClick={() =>
+              task(async () => {
+                if (!status.service?.installed && !status.running) {
+                  await invoke("office_configure", { path, address, port });
+                  setInvite("");
+                }
+                setStatus(
+                  await invoke<Status>("office_service", {
+                    action: status.service?.installed ? "update" : "install",
+                  }),
+                );
+              })
+            }
+          >
+            {status.service?.installed
+              ? "Update service to this app version"
+              : "Install background service"}
+          </button>
+          {status.service?.installed && (
+            <>
+              <button
+                className="text-button"
+                disabled={busy}
+                onClick={() =>
+                  task(async () => {
+                    setStatus(
+                      await invoke<Status>("office_service", {
+                        action: "remove",
+                      }),
+                    );
+                  })
+                }
+              >
+                Remove background service
+              </button>
+              <p>
+                Turn off hosting to pause access, including after a reboot.
+                Remove the service before changing the shared company or network
+                address. Company files and access codes are kept.
+              </p>
+              <p>
+                <small>Service log: {status.service.logPath}</small>
+              </p>
+            </>
+          )}
+        </section>
+      )}
       {status?.company && (
         <section className="office-section">
           <button

@@ -52,7 +52,7 @@ pub struct Entry {
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
-fn executable() -> PathBuf {
+pub(crate) fn executable() -> PathBuf {
     // Release bundles put the platform-specific sidecar beside the application.
     if let Ok(exe) = std::env::current_exe() {
         let sibling = exe.with_file_name(if cfg!(windows) {

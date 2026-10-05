@@ -217,3 +217,96 @@ test("canceling a connection switch preserves unsaved work", async () => {
     mocks.invoke.mock.calls.some(([command]) => command === "office_connect"),
   ).toBe(false);
 });
+
+test("background service installation configures a stopped host and displays native status", async () => {
+  mocks.invoke.mockImplementation(async (command) =>
+    command === "office_service"
+      ? {
+          ...status,
+          company: "/books/company.bky",
+          serviceMode: true,
+          enabled: true,
+          running: true,
+          service: {
+            installed: true,
+            running: true,
+            manager: "systemd",
+            logPath: "/settings/office/service.log",
+          },
+        }
+      : { ...status, company: "/books/company.bky" },
+  );
+  render(
+    <OfficeNetwork books={null} onClose={vi.fn()} onConnected={vi.fn()} />,
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Install background service" }),
+  );
+  await screen.findByText("Service is running");
+  expect(mocks.invoke).toHaveBeenCalledWith("office_service", {
+    action: "install",
+  });
+  expect(mocks.invoke).toHaveBeenCalledWith("office_configure", {
+    path: "/books/company.bky",
+    address: status.address,
+    port: status.port,
+  });
+  expect(
+    screen.getByRole("button", { name: "Choose company to share" }),
+  ).toBeDisabled();
+  expect(screen.getByLabelText("Host IPv4 address")).toBeDisabled();
+});
+test("service mode resumes without reconfiguring or invalidating access codes", async () => {
+  mocks.invoke.mockResolvedValue({
+    ...status,
+    company: "/books/shared.bky",
+    serviceMode: true,
+    service: {
+      installed: true,
+      running: true,
+      manager: "Windows Services",
+      logPath: "service.log",
+    },
+  });
+  render(
+    <OfficeNetwork books={null} onClose={vi.fn()} onConnected={vi.fn()} />,
+  );
+  await screen.findByText("Service is running");
+  fireEvent.click(screen.getByRole("button", { name: "Enable hosting" }));
+  await waitFor(() =>
+    expect(mocks.invoke).toHaveBeenCalledWith("office_start"),
+  );
+  expect(mocks.invoke).not.toHaveBeenCalledWith(
+    "office_configure",
+    expect.anything(),
+  );
+});
+test("service removal is explicit and failures remain visible", async () => {
+  mocks.invoke.mockImplementation(async (command) => {
+    if (command === "office_service")
+      throw new Error("Administrator approval was cancelled");
+    return {
+      ...status,
+      company: "/books/shared.bky",
+      serviceMode: true,
+      service: {
+        installed: true,
+        running: true,
+        manager: "launchd",
+        logPath: "service.log",
+      },
+    };
+  });
+  render(
+    <OfficeNetwork books={null} onClose={vi.fn()} onConnected={vi.fn()} />,
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Remove background service" }),
+  );
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Administrator approval was cancelled",
+  );
+  expect(mocks.invoke).toHaveBeenCalledWith("office_service", {
+    action: "remove",
+  });
+});

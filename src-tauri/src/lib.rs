@@ -2,6 +2,8 @@ mod company;
 mod imports;
 mod ledger;
 mod office;
+mod office_service;
+pub use office_service::cli as office_cli;
 mod review;
 mod workspace;
 use std::{
@@ -360,6 +362,7 @@ pub fn run() {
             save_workspace,
             export_document,
             office::office_status,
+            office_service::office_service,
             office::office_history,
             office::office_configure,
             office::office_start,
