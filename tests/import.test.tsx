@@ -116,7 +116,7 @@ test("commit sends only selected rows and reviewed categories", async () => {
 });
 test("account mapping is reviewed and opening balance requires explicit selection", async () => {
   await setup();
-  fireEvent.change(screen.getByLabelText(`Booky account for ${base.source}`), {
+  fireEvent.change(screen.getByLabelText(`LedgerTrails account for ${base.source}`), {
     target: { value: "assets:bank:checking" },
   });
   await review();

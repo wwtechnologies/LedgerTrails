@@ -45,7 +45,7 @@ fn decode(bytes: &[u8]) -> Result<Document> {
     let document: Document =
         serde_json::from_slice(bytes).map_err(|e| format!("Invalid company file: {e}"))?;
     if document.format != "booky-company" && document.format != "wwt-finance-company" {
-        return Err("This is not a Booky company file.".into());
+        return Err("This is not a LedgerTrails company file.".into());
     }
     if document.version != 1 {
         return Err(format!(
@@ -117,7 +117,7 @@ pub fn create(
     } else if sample {
         include_str!("../../examples/sample.journal").into()
     } else {
-        "; Booky company journal\n".into()
+        "; LedgerTrails company journal\n".into()
     };
     let document = Document {
         format: "booky-company".into(),
@@ -139,7 +139,7 @@ fn lock(path: &Path) -> Result<File> {
         .open(format!("{}.bky-lock", path.display()))
         .map_err(err)?;
     lock.try_lock_exclusive().map_err(|_| {
-        "Another Booky operation is using this company file. Try again.".to_string()
+        "Another LedgerTrails operation is using this company file. Try again.".to_string()
     })?;
     Ok(lock)
 }

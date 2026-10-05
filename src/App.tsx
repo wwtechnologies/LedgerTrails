@@ -40,8 +40,8 @@ import TaxPage from "./TaxPage";
 import "./Finance.css";
 import ReviewPage from "./ReviewPage";
 import ImportDialog, { ImportOutcome } from "./ImportDialog";
-const companyFilters = [{ name: "Booky company file", extensions: ["bky"] }];
-const backupFilters = [{ name: "Booky backup", extensions: ["bkybk"] }];
+const companyFilters = [{ name: "LedgerTrails company file", extensions: ["bky"] }];
+const backupFilters = [{ name: "LedgerTrails backup", extensions: ["bkybk"] }];
 const withExtension = (path: string, extension: string) =>
   path.toLowerCase().endsWith(`.${extension}`) ? path : `${path}.${extension}`;
 const filters = [
@@ -283,12 +283,12 @@ export default function App() {
             <BookOpen size={22} />
           </span>
           <span>
-            <b>Booky</b>
+            <b>LedgerTrails</b>
             <small>YOUR BOOKS, IN BALANCE</small>
           </span>
         </a>
         <div className="workspace">
-          <span className="workspace-avatar">B</span>
+          <span className="workspace-avatar">L</span>
           <span>
             {books?.company?.name ?? "My workspace"}
             <small>{books?.company ? "Company file" : "Local books"}</small>

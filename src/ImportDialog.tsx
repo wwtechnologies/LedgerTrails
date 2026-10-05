@@ -212,7 +212,7 @@ export default function ImportDialog({
                 <small>{path.split(/[\\/]/).pop()}</small>
               </div>
               <p>
-                Map each statement account to its bank account in Booky. Use the
+                Map each statement account to its bank account in LedgerTrails. Use the
                 same mapping when importing overlapping statements.
               </p>
               <datalist id="bank-import-accounts">
@@ -228,7 +228,7 @@ export default function ImportDialog({
                   <input
                     disabled={busy}
                     list="bank-import-accounts"
-                    aria-label={`Booky account for ${source}`}
+                    aria-label={`LedgerTrails account for ${source}`}
                     value={mappings[source] ?? ""}
                     onChange={(e) =>
                       setMappings((prev) => ({

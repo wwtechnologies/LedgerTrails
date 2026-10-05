@@ -1,4 +1,4 @@
-; Fictional sample data for Booky. USD only.
+; Fictional sample data for LedgerTrails. USD only.
 2026-10-01 Opening balances
     assets:bank:checking          8200.00 USD
     assets:bank:savings          15000.00 USD

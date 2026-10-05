@@ -1,4 +1,4 @@
-# Booky
+# LedgerTrails
 
 A local desktop accounting app built with Tauri 2, React, TypeScript, and Rust. hledger validates the books and generates reports.
 
@@ -9,7 +9,7 @@ A local desktop accounting app built with Tauri 2, React, TypeScript, and Rust. 
 | `.bky`   | Working company file: company name, default currency, and the complete journal |
 | `.bkybk` | Portable backup of a company, restored into a new `.bky` file                  |
 
-These are Booky's own versioned formats, not QuickBooks file formats. They are self-contained UTF-8 JSON documents with an embedded plain-text hledger journal. No database server, online account, cloud upload, or original source folder is required to restore them.
+These are the native LedgerTrails versioned formats, not QuickBooks file formats. They are self-contained UTF-8 JSON documents with an embedded plain-text hledger journal. No database server, online account, cloud upload, or original source folder is required to restore them.
 
 - **New company** collects a company name and default currency, then asks where to save. Start empty or import an existing standalone journal. The source journal is unchanged.
 - **Open company** opens a local `.bky` file. The picker also supports standalone `.journal`, `.ledger`, and `.hledger` files for existing users.
@@ -20,7 +20,9 @@ These are Booky's own versioned formats, not QuickBooks file formats. They are s
 
 Every successful transaction save also preserves the previous complete company in `<company>.bky.backups/<revision>.bkybk`. These automatic backups can be restored using the same Restore action. Backups accumulate; there is no automatic retention cleanup yet.
 
-Company files are validated before creation or restore. Unsupported versions, malformed JSON, unbalanced journals, and external journal includes are rejected. A file lock coordinates Booky writers, and content revisions prevent stale saves and stale backups. Changes are staged in the destination directory and atomically replace the working file only after validation and backup. External editors do not participate in Booky's lock; avoid editing the file externally during a save.
+Company files are validated before creation or restore. Unsupported versions, malformed JSON, unbalanced journals, and external journal includes are rejected. A file lock coordinates LedgerTrails writers, and content revisions prevent stale saves and stale backups. Changes are staged in the destination directory and atomically replace the working file only after validation and backup. External editors do not participate in the LedgerTrails lock; avoid editing the file externally during a save.
+
+Existing `.bky` company files and `.bkybk` backups remain compatible. Legacy file-format markers and the desktop application identifier are retained so existing data and application settings continue to work. `BOOKY_HLEDGER` is still accepted as a fallback for `LEDGERTRAILS_HLEDGER`.
 
 ## Run locally
 
@@ -31,7 +33,7 @@ npm ci
 npm run tauri dev
 ```
 
-`npm run dev` starts a browser-only preview with fictional sample data. Native file dialogs and saving require the desktop app. Set `BOOKY_HLEDGER` to an absolute executable path if hledger is not on PATH. A bundled executable takes precedence.
+`npm run dev` starts a browser-only preview with fictional sample data. Native file dialogs and saving require the desktop app. Set `LEDGERTRAILS_HLEDGER` to an absolute executable path if hledger is not on PATH. A bundled executable takes precedence.
 
 ## Accounting features
 
@@ -48,7 +50,7 @@ Standalone journals with included files remain view-only and cannot be imported 
 
 Open a company and choose **Import CSV**. Supported formats are Arvest's `Date, Account, Description, Check #, Category, Credit, Debit` export and Bank of America's `Date, Description, Amount, Running Bal.` export with its summary preamble.
 
-1. Choose the CSV and map its source account(s) to `assets:bank:...` accounts in Booky. Confirm the statement currency (USD by default).
+1. Choose the CSV and map its source account(s) to `assets:bank:...` accounts in LedgerTrails. Confirm the statement currency (USD by default).
 2. Review the transactions. Existing imports are marked and excluded. Choose categories per row, or filter descriptions and apply a category to selected visible rows. Uncheck any rows you do not want.
 3. Click **Import N transactions**. The complete batch is validated with hledger and saved atomically, with one automatic backup. The statement file is never modified.
 
@@ -56,7 +58,7 @@ Deposits increase the mapped asset account and withdrawals reduce it. Rows defau
 
 Bank of America beginning-balance rows are optional and unchecked. Select one only for a bank account whose opening balance has not already been entered. Other summary rows and Arvest totals are not transactions. Reported credit/debit totals are checked against parsed transactions; malformed rows abort the import rather than being silently discarded.
 
-Duplicate markers travel with the company and backups. Matching uses bank, source account, mapped Booky account, currency, date, original description, exact amount, check number, and an occurrence count for identical rows. Use consistent bank mappings. This cannot match earlier manual entries, changed descriptions/source labels, or distinguish identical same-day transactions omitted from a partial overlapping export. Review those cases before importing.
+Duplicate markers travel with the company and backups. Matching uses bank, source account, mapped LedgerTrails account, currency, date, original description, exact amount, check number, and an occurrence count for identical rows. Use consistent bank mappings. This cannot match earlier manual entries, changed descriptions/source labels, or distinguish identical same-day transactions omitted from a partial overlapping export. Review those cases before importing.
 
 Tests use fictional fixtures. To verify local statement files in disposable companies without committing their contents:
 
@@ -80,7 +82,7 @@ Frontend tests exercise company creation, opening, Save, Save As, backup, restor
 npm run desktop:build
 ```
 
-This downloads the pinned official hledger 1.52.1 archive, verifies its committed SHA-256 digest, and bundles it as `booky-hledger` to avoid conflicts with a system hledger installation.
+This downloads the pinned official hledger 1.52.1 archive, verifies its committed SHA-256 digest, and bundles it as `ledgertrails-hledger` to avoid conflicts with a system hledger installation.
 
 Build separately on Linux x64, Windows x64, and macOS Intel/Apple Silicon with their Tauri prerequisites. Other architectures need an appropriate hledger binary. `.github/workflows/check.yml` configures these build checks for GitHub; it has not been run remotely. Windows and macOS have not been tested locally. Signing, notarization, updates, and public distribution are not configured.
 
@@ -120,7 +122,7 @@ Reports follow the recorded ledger, without converting accounting methods or cur
 
 **Supporting schedules & budgets** accepts outstanding invoices/bills, asset costs, inventory carrying values, contractor payments, and exact-period account budgets. These records do not create ledger postings. Aging and asset/inventory schedules use the exact report end date as their snapshot date; maintain outstanding balances after partial payments and reconcile them to the ledger. Contractor payment schedules are supporting records, not automatic 1099 determinations. Full invoicing, bill payment, inventory tracking, bank clearing/reconciliation, and automated depreciation are not implemented.
 
-**Tax** stores a separate calendar-year preparation workspace, including federal entity classification, accounting method, jurisdiction notes, checklist, account mappings, preparer notes, and manual book-to-tax adjustments. Tax settings and supporting schedules are saved inside the `.bky` file as a versioned journal comment, so existing company backups/restores remain portable. Saves require a current revision and produce an automatic backup. The printable preparer packet includes the tax worksheets and underlying reports. Booky does not calculate final tax liability, automatically approve deductions, prepare signed returns, or e-file. Entity-specific IRS form links, recordkeeping guidance, accounting-method guidance, and information-return instructions help users collect the right records. Rates, thresholds, depreciation elections, state/local rules, and taxpayer-specific limitations are not guessed from bank transactions.
+**Tax** stores a separate calendar-year preparation workspace, including federal entity classification, accounting method, jurisdiction notes, checklist, account mappings, preparer notes, and manual book-to-tax adjustments. Tax settings and supporting schedules are saved inside the `.bky` file as a versioned journal comment, so existing company backups/restores remain portable. Saves require a current revision and produce an automatic backup. The printable preparer packet includes the tax worksheets and underlying reports. LedgerTrails does not calculate final tax liability, automatically approve deductions, prepare signed returns, or e-file. Entity-specific IRS form links, recordkeeping guidance, accounting-method guidance, and information-return instructions help users collect the right records. Rates, thresholds, depreciation elections, state/local rules, and taxpayer-specific limitations are not guessed from bank transactions.
 
 ### Tax estimate dashboard
 

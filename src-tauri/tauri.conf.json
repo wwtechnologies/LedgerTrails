@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Booky",
+  "productName": "LedgerTrails",
   "version": "0.1.0",
   "identifier": "com.booky.desktop",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Booky",
+        "title": "LedgerTrails",
         "width": 1280,
         "height": 860,
         "minWidth": 900,

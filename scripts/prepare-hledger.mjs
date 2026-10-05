@@ -28,7 +28,7 @@ if (!target)
   );
 const [assetName, triple] = target;
 const asset = release.assets[assetName];
-const temp = await mkdtemp(join(tmpdir(), "booky-hledger-"));
+const temp = await mkdtemp(join(tmpdir(), "ledgertrails-hledger-"));
 try {
   console.log(`Downloading hledger ${release.version} for ${triple}`);
   const response = await fetch(asset.url);
@@ -44,12 +44,12 @@ try {
     stdio: "inherit",
   });
   await mkdir("src-tauri/binaries", { recursive: true });
-  const destination = `src-tauri/binaries/booky-hledger-${triple}${process.platform === "win32" ? ".exe" : ""}`;
+  const destination = `src-tauri/binaries/ledgertrails-hledger-${triple}${process.platform === "win32" ? ".exe" : ""}`;
   await copyFile(join(temp, binary), destination);
   if (process.platform !== "win32") await chmod(destination, 0o755);
   await writeFile(
     "src-tauri/tauri.bundle.conf.json",
-    JSON.stringify({ bundle: { externalBin: ["binaries/booky-hledger"] } }, null, 2) +
+    JSON.stringify({ bundle: { externalBin: ["binaries/ledgertrails-hledger"] } }, null, 2) +
       "\n",
   );
   console.log(`Prepared ${destination}`);

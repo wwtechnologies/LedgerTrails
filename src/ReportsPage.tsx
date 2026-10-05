@@ -59,7 +59,7 @@ export default function ReportsPage({
         await exportFile(
           books,
           desktop,
-          `Booky-${id}-${end}`,
+          `LedgerTrails-${id}-${end}`,
           ext,
           ext === "csv"
             ? reportCsv(report)

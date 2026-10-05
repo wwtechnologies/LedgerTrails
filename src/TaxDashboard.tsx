@@ -73,7 +73,7 @@ export default function TaxDashboard({
         await exportFile(
           books,
           desktop,
-          `Booky-tax-estimate-${year}`,
+          `LedgerTrails-tax-estimate-${year}`,
           "html",
           reportHtml(
             books.company?.name || "Company",
@@ -399,7 +399,7 @@ export default function TaxDashboard({
         <fieldset disabled={disabled}>
           <p>
             Use annual amounts for the whole return. Zero is an assumption, not
-            a value Booky verified. For joint returns, include both spouses’
+            a value LedgerTrails verified. For joint returns, include both spouses’
             taxable wages and Medicare wages, but only the business owner’s
             Social Security wages.
           </p>
@@ -480,7 +480,7 @@ export default function TaxDashboard({
         <fieldset disabled={disabled}>
           <p>
             Use the prior return’s tax as defined in Form 1040-ES, not its
-            balance due, payments, or last year’s Booky profit.
+            balance due, payments, or last year’s LedgerTrails profit.
           </p>
           <label className="inline-check">
             <input

@@ -56,15 +56,16 @@ fn executable() -> PathBuf {
     // Release bundles put the platform-specific sidecar beside the application.
     if let Ok(exe) = std::env::current_exe() {
         let sibling = exe.with_file_name(if cfg!(windows) {
-            "booky-hledger.exe"
+            "ledgertrails-hledger.exe"
         } else {
-            "booky-hledger"
+            "ledgertrails-hledger"
         });
         if sibling.is_file() {
             return sibling;
         }
     }
-    std::env::var_os("BOOKY_HLEDGER")
+    std::env::var_os("LEDGERTRAILS_HLEDGER")
+        .or_else(|| std::env::var_os("BOOKY_HLEDGER"))
         .map(PathBuf::from)
         .unwrap_or_else(|| "hledger".into())
 }
@@ -81,7 +82,7 @@ fn run(path: Option<&Path>, args: &[&str]) -> Result<String> {
     }
     let output = command.args(args).output().map_err(|e| {
         format!(
-            "Could not start hledger: {e}. Install hledger or set BOOKY_HLEDGER to its executable."
+            "Could not start hledger: {e}. Install hledger or set LEDGERTRAILS_HLEDGER to its executable."
         )
     })?;
     if !output.status.success() {
@@ -198,7 +199,7 @@ pub fn create(path: &Path, sample: bool) -> Result<()> {
     let content = if sample {
         include_str!("../../examples/sample.journal")
     } else {
-        "; Booky journal\n; Account convention: assets, liabilities, income, expenses, equity.\n"
+        "; LedgerTrails journal\n; Account convention: assets, liabilities, income, expenses, equity.\n"
     };
     file.write_all(content.as_bytes()).map_err(err)?;
     file.sync_all().map_err(err)
@@ -275,7 +276,7 @@ pub(crate) fn append_text(path: &Path, expected: &str, text: &str) -> Result<()>
         .open(lock_path)
         .map_err(err)?;
     lock.try_lock_exclusive()
-        .map_err(|_| "Another Booky operation is writing this journal. Try again.".to_string())?;
+        .map_err(|_| "Another LedgerTrails operation is writing this journal. Try again.".to_string())?;
     let original = fs::read(path).map_err(err)?;
     if revision(&original) != expected {
         return Err("Journal changed since it was loaded. Refresh before saving.".into());

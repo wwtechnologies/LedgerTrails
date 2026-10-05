@@ -3,7 +3,7 @@ export default function ReportTable({ report }: { report: Report }) {
   return (
     <article className="report-paper">
       <div className="report-title">
-        <span className="eyebrow">BOOKY REPORT</span>
+        <span className="eyebrow">LEDGERTRAILS REPORT</span>
         <h2>{report.title}</h2>
         <p>{report.subtitle}</p>
       </div>

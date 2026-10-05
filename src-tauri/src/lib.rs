@@ -356,5 +356,5 @@ pub fn run() {
             export_document
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Booky");
+        .expect("error while running LedgerTrails");
 }

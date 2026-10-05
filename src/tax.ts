@@ -114,7 +114,7 @@ export function taxPacket(
     columns: ["Description", "Direction", "Amount"],
     rows: relevant.map((a) => [a.description, a.direction, amount(a.amount)]),
     notes: [
-      "Manual preparation worksheet only. Adjustments do not post to the ledger; amounts are not calculated by Booky.",
+      "Manual preparation worksheet only. Adjustments do not post to the ledger; amounts are not calculated by LedgerTrails.",
     ],
   };
   const checklist: Report = {

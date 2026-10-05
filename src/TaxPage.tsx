@@ -89,7 +89,7 @@ export default function TaxPage({
         await exportFile(
           books,
           desktop,
-          `Booky-tax-preparation-${year}`,
+          `LedgerTrails-tax-preparation-${year}`,
           csv ? "csv" : "html",
           csv
             ? reportCsv(packet[1])
@@ -216,7 +216,7 @@ export default function TaxPage({
       <div className="tax-callout">
         <strong>Preparation workspace</strong>
         <p>
-          Booky provides planning estimates and organizes your tax records. It
+          LedgerTrails provides planning estimates and organizes your tax records. It
           does not file returns or calculate final liability. Start with{" "}
           <a href={form.url} target="_blank" rel="noreferrer">
             {form.name}
@@ -468,7 +468,7 @@ export default function TaxPage({
               <p>
                 Add these under Reports → Supporting schedules. Record business
                 use and depreciation details for assets, and W-9 status and
-                payment method for contractors. Booky does not infer 1099
+                payment method for contractors. LedgerTrails does not infer 1099
                 eligibility from bank descriptions.
               </p>
               <button className="secondary" onClick={onReports}>
