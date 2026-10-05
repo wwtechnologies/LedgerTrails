@@ -1057,3 +1057,57 @@ dialog input {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+
+.recent-books {
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: #fff;
+  border: 1px solid #e3e9e6;
+  border-radius: 12px;
+}
+.recent-books summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.recent-books summary span {
+  color: #64766c;
+  font-weight: 400;
+}
+.recent-books ul {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+.recent-books li {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid #edf1ee;
+}
+.recent-book-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  padding: 12px 0;
+}
+.recent-book-open svg {
+  flex-shrink: 0;
+}
+.recent-book-open span {
+  min-width: 0;
+}
+.recent-book-open strong,
+.recent-book-open small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.recent-book-open small {
+  color: #64766c;
+  margin-top: 3px;
+}
+.recent-book-remove {
+  flex-shrink: 0;
+  padding: 10px;
+}

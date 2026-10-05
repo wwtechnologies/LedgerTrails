@@ -40,7 +40,15 @@ import TaxPage from "./TaxPage";
 import "./Finance.css";
 import ReviewPage from "./ReviewPage";
 import ImportDialog, { ImportOutcome } from "./ImportDialog";
-const companyFilters = [{ name: "LedgerTrails company file", extensions: ["bky"] }];
+import {
+  RecentBook,
+  readRecentBooks,
+  rememberBook,
+  writeRecentBooks,
+} from "./recentBooks";
+const companyFilters = [
+  { name: "LedgerTrails company file", extensions: ["bky"] },
+];
 const backupFilters = [{ name: "LedgerTrails backup", extensions: ["bkybk"] }];
 const withExtension = (path: string, extension: string) =>
   path.toLowerCase().endsWith(`.${extension}`) ? path : `${path}.${extension}`;
@@ -77,6 +85,39 @@ export default function App() {
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
   const desktop = isTauri();
+  const [recentBooks, setRecentBooks] = useState(() =>
+    desktop ? readRecentBooks() : [],
+  );
+  const [historyWarning, setHistoryWarning] = useState("");
+  function updateRecentBooks(recent: RecentBook[]) {
+    setRecentBooks(recent);
+    setHistoryWarning(
+      writeRecentBooks(recent)
+        ? ""
+        : "Recent books could not be saved on this machine. This list may not persist after closing the app.",
+    );
+  }
+  function activateBooks(snapshot: Snapshot) {
+    setBooks(snapshot);
+    if (desktop) updateRecentBooks(rememberBook(recentBooks, snapshot));
+  }
+  async function openRecent(book: RecentBook) {
+    await work(async () => {
+      try {
+        const snapshot = await invoke<Snapshot>(
+          book.kind === "company" ? "open_company" : "open_journal",
+          { path: book.path },
+        );
+        activateBooks(snapshot);
+        setQuery("");
+        setView("Overview");
+      } catch (e) {
+        throw new Error(
+          `Could not open ${book.name}: ${e}. If the file was moved, use Open company to find it, or remove this shortcut from Recent books.`,
+        );
+      }
+    });
+  }
   async function work(action: () => Promise<void>) {
     if (taxDirty && !window.confirm("Discard unsaved tax workspace changes?"))
       return;
@@ -123,7 +164,7 @@ export default function App() {
           const command = /\.(journal|ledger|hledger)$/i.test(path)
             ? "open_journal"
             : "open_company";
-          setBooks(await invoke<Snapshot>(command, { path }));
+          activateBooks(await invoke<Snapshot>(command, { path }));
           setQuery("");
         }
       } else {
@@ -132,7 +173,7 @@ export default function App() {
           filters: companyFilters,
         });
         if (chosen)
-          setBooks(
+          activateBooks(
             await invoke<Snapshot>("create_company", {
               path: withExtension(chosen, "bky"),
               details: { name: "Sample Company", currency: "USD" },
@@ -156,7 +197,7 @@ export default function App() {
         source,
         sample: false,
       });
-      setBooks(result);
+      activateBooks(result);
       setCreating(false);
       setQuery("");
       setNotice(
@@ -179,7 +220,7 @@ export default function App() {
         filters: companyFilters,
       });
       if (!chosen) return;
-      setBooks(
+      activateBooks(
         await invoke<Snapshot>("restore_company", {
           source,
           path: withExtension(chosen, "bky"),
@@ -216,7 +257,7 @@ export default function App() {
         revision: books.revision,
         switch: !backup,
       });
-      if (!backup) setBooks(result);
+      if (!backup) activateBooks(result);
       setNotice(
         backup
           ? `Backup created: ${path}. Your current company stays open.`
@@ -390,6 +431,56 @@ export default function App() {
               <Check size={18} />
               {notice}
             </div>
+          )}
+          {desktop && (recentBooks.length > 0 || historyWarning) && (
+            <details className="recent-books" open={!books}>
+              <summary>
+                Recent books <span>({recentBooks.length})</span>
+              </summary>
+              {historyWarning && <p role="status">{historyWarning}</p>}
+              <ul>
+                {recentBooks.map((book) => (
+                  <li key={book.path}>
+                    <button
+                      className="recent-book-open"
+                      disabled={busy}
+                      onClick={() => openRecent(book)}
+                      aria-label={`Open recent ${book.name}`}
+                    >
+                      <BookOpen size={18} />
+                      <span>
+                        <strong>{book.name}</strong>
+                        <small>{book.path}</small>
+                      </span>
+                    </button>
+                    <button
+                      className="recent-book-remove"
+                      disabled={busy}
+                      onClick={() =>
+                        updateRecentBooks(
+                          recentBooks.filter(
+                            (entry) => entry.path !== book.path,
+                          ),
+                        )
+                      }
+                      aria-label={`Remove ${book.name} from recent books`}
+                      title="Remove shortcut; keeps the file"
+                    >
+                      <X size={16} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {recentBooks.length > 0 && (
+                <button
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() => updateRecentBooks([])}
+                >
+                  Clear recent books
+                </button>
+              )}
+            </details>
           )}
           {!books ? (
             <section className="welcome">

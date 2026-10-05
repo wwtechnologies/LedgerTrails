@@ -16,6 +16,7 @@ Get Linux x86_64 downloads from [GitHub Releases](https://github.com/wwtechnolog
 These are the native LedgerTrails versioned formats, not QuickBooks file formats. They are self-contained UTF-8 JSON documents with an embedded plain-text hledger journal. No database server, online account, cloud upload, or original source folder is required to restore them.
 
 - **New company** collects a company name and default currency, then asks where to save. Start empty or import an existing standalone journal. The source journal is unchanged.
+- **Recent books** remembers the last ten successfully opened companies or journals on this machine. Reopen one directly from the welcome screen, or expand Recent books while another company is open. Removing or clearing shortcuts does not delete files. Moved files can be located again with Open company. Only file paths and display names are stored in local app storage; this history is separate from company files and backups.
 - **Open company** opens a local `.bky` file. The picker also supports standalone `.journal`, `.ledger`, and `.hledger` files for existing users.
 - **Save** verifies and flushes the active company file. Submitted transactions already save automatically; unfinished form fields are not saved until submitted.
 - **Save as** saves a separate `.bky` copy and switches to it.

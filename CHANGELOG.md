@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Recent books remembers the last ten opened companies and journals on this
+  machine, with direct reopening and controls to remove or clear shortcuts.
+
 ## 0.1.0 — 2026-10-05
 
 Initial public release of LedgerTrails.

@@ -18,6 +18,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 const current = { ...sample, path: "/books/example.bky", revision: "original" };
 beforeEach(() => {
   vi.resetAllMocks();
+  localStorage.clear();
 });
 async function openCompany() {
   mocks.open.mockResolvedValueOnce(current.path);
@@ -144,4 +145,144 @@ test("save flushes the active company revision", async () => {
   expect(mocks.invoke).toHaveBeenLastCalledWith("save_company", {
     revision: "original",
   });
+});
+
+test("recent companies survive reopening the app and bypass the file picker", async () => {
+  mocks.open.mockResolvedValueOnce(current.path);
+  mocks.invoke.mockResolvedValueOnce(current);
+  const first = render(<App />);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Open company", exact: true }),
+  );
+  await screen.findByRole("button", { name: "Open recent Sample Company" });
+  first.unmount();
+  mocks.open.mockClear();
+  mocks.invoke.mockResolvedValueOnce(current);
+  render(<App />);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Open recent Sample Company" }),
+  );
+  await screen.findByRole("button", { name: "Back up", exact: true });
+  expect(mocks.open).not.toHaveBeenCalled();
+  expect(mocks.invoke).toHaveBeenLastCalledWith("open_company", {
+    path: current.path,
+  });
+});
+
+test("failed recent opens preserve the active book and allow removal of the shortcut", async () => {
+  localStorage.setItem(
+    "ledgertrails.recent-books.v1",
+    JSON.stringify([
+      { path: "/missing.bky", name: "Missing Company", kind: "company" },
+    ]),
+  );
+  await openCompany();
+  mocks.invoke.mockRejectedValueOnce("File not found");
+  fireEvent.click(
+    screen.getByRole("button", { name: "Open recent Missing Company" }),
+  );
+  expect(await screen.findByRole("alert")).toHaveTextContent("File not found");
+  expect(screen.getByTitle(current.path)).toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Remove Missing Company from recent books",
+    }),
+  );
+  expect(
+    screen.queryByRole("button", { name: "Open recent Missing Company" }),
+  ).not.toBeInTheDocument();
+  expect(localStorage.getItem("ledgertrails.recent-books.v1")).not.toContain(
+    "/missing.bky",
+  );
+  expect(mocks.invoke).toHaveBeenCalledTimes(2);
+});
+
+test("recent journals use the journal backend and can be cleared without file operations", async () => {
+  localStorage.setItem(
+    "ledgertrails.recent-books.v1",
+    JSON.stringify([
+      { path: "/books/old.journal", name: "old.journal", kind: "journal" },
+    ]),
+  );
+  mocks.invoke.mockResolvedValueOnce({
+    ...current,
+    company: null,
+    path: "/books/old.journal",
+  });
+  render(<App />);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Open recent old.journal" }),
+  );
+  await screen.findByTitle("/books/old.journal");
+  expect(mocks.invoke).toHaveBeenCalledWith("open_journal", {
+    path: "/books/old.journal",
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Clear recent books" }));
+  expect(
+    JSON.parse(localStorage.getItem("ledgertrails.recent-books.v1")!),
+  ).toEqual([]);
+  expect(mocks.invoke).toHaveBeenCalledTimes(1);
+});
+
+test("corrupt recent-book storage and unavailable storage do not prevent opening a company", async () => {
+  localStorage.setItem("ledgertrails.recent-books.v1", "not JSON");
+  const storage = vi
+    .spyOn(Storage.prototype, "setItem")
+    .mockImplementation(() => {
+      throw new Error("Storage unavailable");
+    });
+  try {
+    await openCompany();
+    expect(screen.getByTitle(current.path)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Recent books could not be saved/),
+    ).toBeInTheDocument();
+  } finally {
+    storage.mockRestore();
+  }
+});
+
+test("recent books are deduplicated, newest first, capped at ten, and exclude backups", async () => {
+  localStorage.setItem(
+    "ledgertrails.recent-books.v1",
+    JSON.stringify(
+      Array.from({ length: 10 }, (_, i) => ({
+        path: `/books/${i}.bky`,
+        name: `Company ${i}`,
+        kind: "company",
+      })),
+    ),
+  );
+  await openCompany();
+  let recent = JSON.parse(
+    localStorage.getItem("ledgertrails.recent-books.v1")!,
+  );
+  expect(recent).toHaveLength(10);
+  expect(recent[0].path).toBe(current.path);
+  expect(recent.some((r: { path: string }) => r.path === "/books/9.bky")).toBe(
+    false,
+  );
+  mocks.invoke.mockResolvedValueOnce(current);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Open recent Sample Company" }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Back up", exact: true }),
+    ).toBeEnabled(),
+  );
+  recent = JSON.parse(localStorage.getItem("ledgertrails.recent-books.v1")!);
+  expect(
+    recent.filter((r: { path: string }) => r.path === current.path),
+  ).toHaveLength(1);
+  mocks.save.mockResolvedValueOnce("/backups/safe.bkybk");
+  mocks.invoke.mockResolvedValueOnce({
+    ...current,
+    path: "/backups/safe.bkybk",
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Back up", exact: true }));
+  await screen.findByText(/Backup created:/);
+  expect(localStorage.getItem("ledgertrails.recent-books.v1")).not.toContain(
+    "safe.bkybk",
+  );
 });
