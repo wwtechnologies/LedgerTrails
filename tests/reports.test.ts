@@ -200,6 +200,37 @@ test("exports escape HTML and neutralize spreadsheet formulas in descriptions", 
   assert.doesNotMatch(reportHtml("<img src=x>", [r]), /<script>|<img/);
   assert.match(reportHtml("Test", [r]), /&lt;script&gt;/);
 });
+test("tax category totals sum mapped book amounts without applying deduction limits", () => {
+  const extra = {
+    ...books,
+    transactions: [
+      ...books.transactions,
+      tx("2025-01-06", "Second meal", [
+        ["expenses:meals", "15"],
+        ["assets:bank:a", "-15"],
+      ]),
+      tx("2025-01-07", "First meal", [
+        ["expenses:meals", "10"],
+        ["assets:bank:a", "-10"],
+      ]),
+    ],
+  };
+  const tax = emptyTaxYear();
+  tax.mappings["expenses:meals"] = "Meals (50% limit)";
+  const rows = taxPacket(extra, p, tax, emptyWorkspace())[2].rows;
+  assert.deepEqual(
+    rows.find((r) => r[1] === "Meals (50% limit)"),
+    ["Expense", "Meals (50% limit)", "25.00"],
+  );
+  assert.deepEqual(
+    rows.find((r) => r[0] === "Income" && r[1] === "Unmapped"),
+    ["Income", "Unmapped", "100.00"],
+  );
+  assert.deepEqual(
+    rows.find((r) => r[0] === "Expense" && r[1] === "Unmapped"),
+    ["Expense", "Unmapped", "25.00"],
+  );
+});
 test("invalid dates and inverted periods are rejected", () => {
   assert.equal(validPeriod({ ...p, start: "2025-02-30" }), false);
   assert.throws(() =>

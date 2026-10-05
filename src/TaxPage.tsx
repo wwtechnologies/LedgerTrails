@@ -7,6 +7,10 @@ import {
   entityLabels,
   formLinks,
   taxBuckets,
+  turboTaxExpenseBuckets,
+  employeeBuckets,
+  otherTaxBuckets,
+  normalizeTaxYear,
   type TaxYear,
   type Entity,
 } from "./workspace";
@@ -39,7 +43,9 @@ export default function TaxPage({
   const workspace = useWorkspace(books, desktop, onSaved);
   useEffect(() => {
     if (!workspace.loading) {
-      setTax(workspace.value.tax_years[year] || emptyTaxYear());
+      setTax(
+        normalizeTaxYear(workspace.value.tax_years[year] || emptyTaxYear()),
+      );
       setDirty(false);
       onDirty(false);
     }
@@ -93,7 +99,7 @@ export default function TaxPage({
           `LedgerTrails-tax-preparation-${year}`,
           csv ? "csv" : "html",
           csv
-            ? reportCsv(packet[1])
+            ? reportCsv(packet[2])
             : reportHtml(books.company?.name || "Company", packet),
         )
       )
@@ -338,8 +344,16 @@ export default function TaxPage({
             <>
               <h3>Map book accounts to preparation categories</h3>
               <p>
-                These group recorded amounts for your preparer. They do not
-                automatically determine deductions or change transactions.
+                Choose the matching TurboTax category for each book account.
+                Income, inventory, payroll, rent, and other records have
+                separate choices. These labels organize amounts only; they do
+                not calculate deductible amounts or change transactions.
+              </p>
+              <p>
+                Review vehicle business use, home-office allocation, asset
+                treatment, and meal limits before filing. Employee wages and
+                work credits are separate calculations; mapping wages does not
+                calculate a credit.
               </p>
               <div className="report-scroll">
                 <table>
@@ -370,9 +384,32 @@ export default function TaxPage({
                               })
                             }
                           >
-                            {taxBuckets.map((b) => (
-                              <option key={b}>{b}</option>
-                            ))}
+                            <option>Unmapped</option>
+                            <optgroup label="Employee wages and work credits">
+                              {employeeBuckets.map((b) => (
+                                <option key={b}>{b}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="TurboTax business expenses">
+                              {turboTaxExpenseBuckets.map((b) => (
+                                <option key={b}>{b}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="Other tax sections and review">
+                              {otherTaxBuckets.map((b) => (
+                                <option key={b}>{b}</option>
+                              ))}
+                            </optgroup>
+                            {tax.mappings[a.account] &&
+                              !taxBuckets.includes(
+                                tax.mappings[
+                                  a.account
+                                ] as (typeof taxBuckets)[number],
+                              ) && (
+                                <optgroup label="Previously saved category — review this mapping">
+                                  <option>{tax.mappings[a.account]}</option>
+                                </optgroup>
+                              )}
                           </select>
                         </td>
                       </tr>
@@ -386,6 +423,7 @@ export default function TaxPage({
                   </p>
                 )}
               </div>
+              <ReportTable report={packet[2]} />
             </>
           )}
           {tab === "Adjustments" && (

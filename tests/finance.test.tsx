@@ -1,5 +1,11 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import ReportsPage from "../src/ReportsPage";
 import TaxPage from "../src/TaxPage";
 import sample from "../src/sample.json";
@@ -90,6 +96,49 @@ test("workspace load failure disables saving and does not overwrite records", as
     screen.getByRole("button", { name: "Readiness", exact: true }),
   );
   expect(screen.getByLabelText("Federal tax classification")).toBeDisabled();
+});
+test("tax categories match the requested TurboTax list and preserve uncertain older mappings", async () => {
+  const w = emptyWorkspace();
+  w.tax_years["2026"] = {
+    ...(await import("../src/workspace")).emptyTaxYear(),
+    mappings: {
+      "expenses:office": "Meals review",
+      "expenses:utilities": "Vehicle expenses",
+    },
+  };
+  mocks.invoke.mockResolvedValue(w);
+  render(
+    <TaxPage
+      books={sample}
+      desktop
+      onSaved={vi.fn()}
+      onDirty={vi.fn()}
+      onReports={vi.fn()}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Tax categories" }));
+  const meals = await screen.findByLabelText(
+    "Tax category for expenses:office",
+  );
+  await waitFor(() => expect(meals).toHaveValue("Meals review"));
+  expect(
+    within(meals).getByRole("option", { name: "Meals (100% limit)" }),
+  ).toBeInTheDocument();
+  expect(
+    within(meals).getByRole("option", { name: "Meals (50% limit)" }),
+  ).toBeInTheDocument();
+  expect(
+    within(meals).getByRole("option", { name: "Home office" }),
+  ).toBeInTheDocument();
+  expect(
+    within(meals).getByRole("option", { name: "Employee wages" }),
+  ).toBeInTheDocument();
+  expect(
+    within(meals).getByRole("option", { name: "Cost of goods sold" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByLabelText("Tax category for expenses:utilities"),
+  ).toHaveValue("Vehicle");
 });
 
 test("estimates preserve each year's profile and save recorded payments in company workspace", async () => {

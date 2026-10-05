@@ -106,33 +106,63 @@ export const checkItems = [
     "Have the tax preparer review adjustments and state/local requirements",
   ],
 ] as const;
-export const taxBuckets = [
-  "Unmapped",
+export const turboTaxExpenseBuckets = [
+  "Vehicle",
+  "Home office",
+  "Communications",
+  "Assets",
+  "Supplies",
+  "Advertising",
+  "Meals (100% limit)",
+  "Meals (50% limit)",
+  "Legal and professional fees",
+  "Business travel",
+  "Office expenses",
+  "Credit card, loan, and other interest",
+  "Taxes and licenses",
+  "Business insurance",
+  "Utilities",
+  "Other miscellaneous expenses",
+] as const;
+export const employeeBuckets = ["Employee wages"] as const;
+export const otherTaxBuckets = [
   "Gross receipts",
   "Other income",
   "Cost of goods sold",
-  "Advertising",
-  "Vehicle expenses",
   "Commissions and fees",
   "Contract labor",
-  "Depreciation review",
-  "Insurance",
-  "Interest",
-  "Legal and professional",
-  "Office expenses",
+  "Employee benefits",
   "Rent and lease",
   "Repairs and maintenance",
-  "Supplies",
-  "Taxes and licenses",
-  "Travel",
-  "Meals review",
-  "Utilities",
-  "Wages",
-  "Employee benefits",
-  "Other business expenses",
   "Nondeductible / personal",
   "Preparer review",
 ] as const;
+export const taxBuckets = [
+  "Unmapped",
+  ...employeeBuckets,
+  ...turboTaxExpenseBuckets,
+  ...otherTaxBuckets,
+] as const;
+const oldTaxBucketLabels: Record<string, string> = {
+  "Vehicle expenses": "Vehicle",
+  Insurance: "Business insurance",
+  Interest: "Credit card, loan, and other interest",
+  "Legal and professional": "Legal and professional fees",
+  Travel: "Business travel",
+  Wages: "Employee wages",
+  "Other business expenses": "Other miscellaneous expenses",
+};
+export function normalizeTaxYear(tax: TaxYear): TaxYear {
+  return {
+    ...tax,
+    mappings: Object.fromEntries(
+      Object.entries(tax.mappings).map(([account, bucket]) => [
+        account,
+        oldTaxBucketLabels[bucket] || bucket,
+      ]),
+    ),
+  };
+}
 export const entityLabels: Record<Entity, string> = {
   unknown: "Choose tax classification",
   sole: "Sole proprietor / single-member LLC",

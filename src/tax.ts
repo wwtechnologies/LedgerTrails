@@ -15,6 +15,7 @@ import {
   checkItems,
   entityLabels,
   formLinks,
+  taxBuckets,
   type TaxYear,
   type Workspace,
 } from "./workspace.ts";
@@ -108,6 +109,42 @@ export function taxPacket(
       "These are book amounts, not approved deductions. Meals, vehicle costs, assets, owner items, and other limited expenses need supporting records and tax adjustments.",
     ],
   };
+  const categoryAmounts = new Map<
+    string,
+    { section: string; bucket: string; total: Decimal }
+  >();
+  for (const account of accounts) {
+    const section = under(account.account, "income") ? "Income" : "Expense";
+    const bucket = tax.mappings[account.account] || "Unmapped";
+    const key = `${section}\0${bucket}`;
+    const previous = categoryAmounts.get(key);
+    categoryAmounts.set(key, {
+      section,
+      bucket,
+      total: (previous?.total || new Decimal(0)).plus(account.amount),
+    });
+  }
+  const categoryTotals: Report = {
+    title: "Tax category totals",
+    subtitle: summary.subtitle,
+    columns: ["Book section", "Preparation category", "Recorded total"],
+    rows: [...categoryAmounts.values()]
+      .sort((a, b) => {
+        const ai = taxBuckets.indexOf(a.bucket as (typeof taxBuckets)[number]);
+        const bi = taxBuckets.indexOf(b.bucket as (typeof taxBuckets)[number]);
+        return (
+          a.section.localeCompare(b.section) ||
+          (ai < 0 ? taxBuckets.length : ai) -
+            (bi < 0 ? taxBuckets.length : bi) ||
+          a.bucket.localeCompare(b.bucket)
+        );
+      })
+      .map(({ section, bucket, total }) => [section, bucket, amount(total)]),
+    notes: [
+      "Recorded totals are not deductible amounts. Review meals, vehicle business use, home office, assets, payroll credits, and other limitations before filing.",
+      "Unmapped and previously saved categories require review before copying amounts into tax software.",
+    ],
+  };
   const adjustments: Report = {
     title: "Book-to-tax adjustments",
     subtitle: summary.subtitle,
@@ -138,6 +175,7 @@ export function taxPacket(
   return [
     summary,
     mappings,
+    categoryTotals,
     adjustments,
     checklist,
     ...(
