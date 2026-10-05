@@ -2,6 +2,10 @@
 
 A local desktop accounting app built with Tauri 2, React, TypeScript, and Rust. hledger validates the books and generates reports.
 
+## Downloads
+
+Get Linux x86_64 downloads from [GitHub Releases](https://github.com/wwtechnologies/LedgerTrails/releases). See [the changelog](CHANGELOG.md) and each release's notes for compatibility, installation instructions, checksums, and source/license assets. Version 0.1.0 packages require glibc 2.39 or newer and were built on Arch Linux. Windows and macOS installers are not included.
+
 ## Company files and backups
 
 | File     | Purpose                                                                        |
@@ -84,7 +88,7 @@ npm run desktop:build
 
 This downloads the pinned official hledger 1.52.1 archive, verifies its committed SHA-256 digest, and bundles it as `ledgertrails-hledger` to avoid conflicts with a system hledger installation.
 
-Build separately on Linux x64, Windows x64, and macOS Intel/Apple Silicon with their Tauri prerequisites. Other architectures need an appropriate hledger binary. `.github/workflows/check.yml` configures these build checks for GitHub; it has not been run remotely. Windows and macOS have not been tested locally. Signing, notarization, updates, and public distribution are not configured.
+Build separately on Linux x64, Windows x64, and macOS Intel/Apple Silicon with their Tauri prerequisites. Other architectures need an appropriate hledger binary. `.github/workflows/check.yml` runs these build checks on GitHub. Windows and macOS have not been tested locally. Signing, notarization, and automatic updates are not configured.
 
 For a Linux debug package:
 
