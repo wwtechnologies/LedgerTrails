@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   writeFileSync,
   rmSync,
   realpathSync,
@@ -77,7 +78,7 @@ async function until(predicate, label) {
 }
 let child;
 let peer;
-function rpc() {
+function rpc(command = "snapshot", args = {}) {
   return new Promise((resolve, reject) => {
     const req = https.request(
       {
@@ -102,7 +103,7 @@ function rpc() {
     );
     req.on("error", reject);
     req.on("timeout", () => req.destroy(new Error("TLS request timeout")));
-    req.end(JSON.stringify({ command: "snapshot", args: {} }));
+    req.end(JSON.stringify({ command, args }));
   });
 }
 function startProcess() {
@@ -142,7 +143,31 @@ try {
     assert.equal(status().service.installed, true);
     assert.equal(status().service.running, true);
   }
-  assert.equal((await rpc()).body.data.company.name, "Service test");
+  await until(async () => {
+    try {
+      return (await rpc()).status === 200;
+    } catch {
+      return false;
+    }
+  }, "TLS listener readiness");
+  const initial = (await rpc()).body.data;
+  assert.equal(initial.company.name, "Service test");
+  const entry = {
+    date: "2026-10-05",
+    description: "Service write",
+    debit: "assets:bank",
+    credit: "income:sales",
+    amount: "10.00",
+    commodity: "USD",
+  };
+  const saved = await rpc("add_entry", { revision: initial.revision, entry });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  assert.equal(
+    (await rpc("add_entry", { revision: initial.revision, entry })).status,
+    409,
+  );
+  assert.equal((await rpc()).body.data.transactions.length, 1);
+  assert.equal(readdirSync(`${company}.backups`).length, 1);
   // Stop and restart the executable/service, without any desktop process alive.
   if (native) admin("stop");
   else await stopProcess();
@@ -150,7 +175,24 @@ try {
   if (native) admin("start");
   else startProcess();
   await until(() => status().running, "restart with persisted settings");
-  assert.equal((await rpc()).status, 200);
+  await until(async () => {
+    try {
+      return (await rpc()).status === 200;
+    } catch {
+      return false;
+    }
+  }, "restarted TLS listener");
+  if (native) {
+    admin("update");
+    await until(async () => {
+      try {
+        return (await rpc()).status === 200;
+      } catch {
+        return false;
+      }
+    }, "updated service");
+    assert.equal((await rpc()).body.data.transactions.length, 1);
+  }
   // A second process changes credentials while the daemon is running.
   const second = cli("--office-invite").trim();
   peer = JSON.parse(Buffer.from(second.slice(4), "base64url").toString());

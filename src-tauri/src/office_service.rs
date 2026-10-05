@@ -85,8 +85,22 @@ fn write_file(path: &Path, bytes: &[u8], mode: u32) -> Result<()> {
     #[cfg(not(unix))]
     let _ = mode;
     temp.as_file().sync_all().map_err(err)?;
-    temp.persist(path).map_err(err)?;
-    Ok(())
+    for attempt in 0..50 {
+        match temp.persist(path) {
+            Ok(_) => return Ok(()),
+            Err(e)
+                if cfg!(windows)
+                    && attempt < 49
+                    && matches!(e.error.raw_os_error(), Some(5 | 32 | 33)) =>
+            {
+                // SCM can report Stopped just before Windows releases the executable handle.
+                temp = e.file;
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            Err(e) => return Err(err(e)),
+        }
+    }
+    unreachable!()
 }
 fn resolve(path: PathBuf) -> Result<PathBuf> {
     if path.is_absolute() && path.is_file() {
