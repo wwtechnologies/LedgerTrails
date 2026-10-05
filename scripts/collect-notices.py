@@ -21,12 +21,12 @@ for package in metadata['packages']:
         p=folder/package['license_file']
         if p.is_file(): shutil.copy2(p,dest/p.name)
     records.append({'ecosystem':'rust','name':name,'version':version,'license':package['license'],'repository':package['repository'],'source':f'https://crates.io/api/v1/crates/{name}/{version}/download'})
-lock=json.loads((root/'package-lock.json').read_text())
+lock=json.loads((root/'package-lock.json').read_text(encoding="utf-8"))
 for rel,pkg in lock['packages'].items():
     if not rel: continue
     folder=root/rel
     if not (folder/'package.json').is_file(): continue
-    data=json.loads((folder/'package.json').read_text())
+    data=json.loads((folder/'package.json').read_text(encoding="utf-8"))
     name,version=data['name'],data['version']
     dest=out/'npm'/(name.replace('/','_')+'-'+version)
     copy_notices(folder,dest)
