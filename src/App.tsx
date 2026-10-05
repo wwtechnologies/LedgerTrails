@@ -86,7 +86,7 @@ function transactionEntry(t: Transaction): Entry {
     description: t.description,
     debit: debit.account,
     credit: credit.account,
-    amount: new Decimal(amount.quantity).abs().toString(),
+    amount: new Decimal(amount.quantity).abs().toFixed(),
     commodity: amount.commodity,
   };
 }
