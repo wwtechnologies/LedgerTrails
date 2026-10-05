@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.1.1 — 2026-10-05
+
+- Optional background server services for Windows, macOS, and Linux, with
+  boot startup, persistent pause, updates, removal, and live access revocation.
+- Windows x64 and macOS Intel/Apple Silicon installers alongside Linux downloads.
 
 - Optional office hosting with encrypted, certificate-pinned connections,
   named revocable editor/read-only access codes, shared company operations,

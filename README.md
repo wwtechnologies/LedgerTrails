@@ -4,7 +4,7 @@ A local desktop accounting app built with Tauri 2, React, TypeScript, and Rust. 
 
 ## Downloads
 
-Get Linux x86_64 downloads from [GitHub Releases](https://github.com/wwtechnologies/LedgerTrails/releases). See [the changelog](CHANGELOG.md) and each release's notes for compatibility, installation instructions, checksums, and source/license assets. Version 0.1.0 packages require glibc 2.39 or newer and were built on Arch Linux. Windows and macOS installers are not included.
+Get Windows x64, macOS (Apple Silicon or Intel), and Linux x86_64 downloads from [GitHub Releases](https://github.com/wwtechnologies/LedgerTrails/releases). See [the changelog](CHANGELOG.md) and release notes for installation instructions, platform requirements, checksums, and source/license assets. Installers are unsigned; macOS builds are not notarized.
 
 ## Company files and backups
 

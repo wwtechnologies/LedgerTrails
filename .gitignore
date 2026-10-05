@@ -41,3 +41,5 @@ src-tauri/tauri.bundle.conf.json
 *.bky
 *.bkybk
 *.bky.backups/
+
+/release-notices/
