@@ -329,6 +329,38 @@ fn admin(m: &Manifest, action: &str) -> Result<()> {
     Ok(())
 }
 #[cfg(target_os = "macos")]
+fn bootout(target: &str) -> Result<()> {
+    if command("launchctl", &["print", target]).is_err() {
+        return Ok(());
+    }
+    command("launchctl", &["bootout", target])?;
+    // bootout can return before launchd has removed the old job registration.
+    for _ in 0..150 {
+        if command("launchctl", &["print", target]).is_err() {
+            return Ok(());
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    Err("launchd has not finished removing the old service; try again shortly".into())
+}
+#[cfg(target_os = "macos")]
+fn bootstrap(target: &str, path: &Path) -> Result<()> {
+    command("launchctl", &["enable", target])?;
+    if command("launchctl", &["print", target]).is_err() {
+        command(
+            "launchctl",
+            &[
+                "bootstrap",
+                "system",
+                path.to_str().ok_or("Invalid service path")?,
+            ],
+        )?;
+    }
+    // Explicitly start the new registration, including after a recent bootout.
+    command("launchctl", &["kickstart", "-p", target])?;
+    Ok(())
+}
+#[cfg(target_os = "macos")]
 fn admin(m: &Manifest, action: &str) -> Result<()> {
     if command("id", &["-u"])? != "0" {
         return Err("Administrator approval is required".into());
@@ -338,38 +370,26 @@ fn admin(m: &Manifest, action: &str) -> Result<()> {
     let path = Path::new("/Library/LaunchDaemons").join(format!("{name}.plist"));
     match action {
         "install" | "update" => {
-            let _ = command("launchctl", &["bootout", &target]);
+            bootout(&target)?;
             stage(m)?;
             write_file(&path, plist(m).as_bytes(), 0o644)?;
             command(
                 "chown",
                 &["root:wheel", path.to_str().ok_or("Invalid service path")?],
             )?;
-            command("launchctl", &["enable", &target])?;
-            command(
-                "launchctl",
-                &["bootstrap", "system", path.to_str().unwrap()],
-            )?;
+            bootstrap(&target, &path)?;
         }
         "remove" => {
-            let _ = command("launchctl", &["bootout", &target]);
+            bootout(&target)?;
             if path.exists() {
                 fs::remove_file(path).map_err(err)?;
             }
         }
         "start" => {
-            command("launchctl", &["enable", &target])?;
-            if command("launchctl", &["print", &target]).is_err() {
-                command(
-                    "launchctl",
-                    &["bootstrap", "system", path.to_str().unwrap()],
-                )?;
-            } else {
-                command("launchctl", &["kickstart", &target])?;
-            }
+            bootstrap(&target, &path)?;
         }
         "stop" => {
-            let _ = command("launchctl", &["bootout", &target]);
+            bootout(&target)?;
         }
         _ => return Err("Unsupported service action".into()),
     }

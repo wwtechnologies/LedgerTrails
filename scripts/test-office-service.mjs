@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  renameSync,
   writeFileSync,
   rmSync,
   realpathSync,
@@ -58,6 +59,7 @@ function cli(action, extra = []) {
   });
 }
 function admin(action) {
+  console.log(`Native service: ${action}`);
   const args = ["--office-service-admin", action, "--config-dir", config];
   execFileSync(
     process.platform === "win32" ? exe : "sudo",
@@ -86,6 +88,7 @@ function rpc(command = "snapshot", args = {}) {
         port,
         path: "/v1/rpc",
         method: "POST",
+        agent: false,
         ca: peer.certificate,
         headers: {
           authorization: `Bearer ${peer.token}`,
@@ -200,11 +203,16 @@ try {
   // CLI config edits emulate an app revocation. Server reloads without a restart.
   const file = join(config, "server.json");
   const settings = JSON.parse(readFileSync(file, "utf8"));
+  function persistSettings() {
+    const temp = `${file}.test-update`;
+    writeFileSync(temp, JSON.stringify(settings));
+    renameSync(temp, file);
+  }
   settings.users = [];
-  writeFileSync(file, JSON.stringify(settings));
+  persistSettings();
   assert.equal((await rpc()).status, 401);
   settings.enabled = false;
-  writeFileSync(file, JSON.stringify(settings));
+  persistSettings();
   await until(() => !status().running, "disable hosting from another process");
   if (native) admin("stop");
   else await stopProcess();
@@ -220,6 +228,27 @@ try {
   console.log(
     `Passed headless TLS, restart, live credentials, and persistent disable tests (${native ? "native service" : "process"}, ${process.platform}).`,
   );
+} catch (error) {
+  try {
+    console.error(readFileSync(join(config, "service.log"), "utf8"));
+  } catch {}
+  if (native && process.platform === "darwin") {
+    try {
+      console.error(
+        execFileSync(
+          "sudo",
+          [
+            "-n",
+            "launchctl",
+            "print",
+            `system/com.ledgertrails.${status().service.name}`,
+          ],
+          { encoding: "utf8" },
+        ),
+      );
+    } catch {}
+  }
+  throw error;
 } finally {
   if (native) {
     try {
