@@ -16,6 +16,9 @@ export interface Transaction {
   date: string;
   description: string;
   postings: Posting[];
+  source_line?: number | null;
+  source_end?: number | null;
+  editable?: boolean;
 }
 export interface CompanyDetails {
   name: string;

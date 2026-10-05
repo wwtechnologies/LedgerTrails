@@ -187,6 +187,26 @@ async fn add_entry(
     .await
 }
 #[tauri::command]
+async fn edit_entry(
+    entry: ledger::Entry,
+    source_line: usize,
+    source_end: usize,
+    revision: String,
+    state: State<'_, Books>,
+) -> ledger::Result<()> {
+    let books = state.inner().clone();
+    blocking(move || {
+        let selected = books.0.lock().map_err(|e| e.to_string())?;
+        let active = selected.as_ref().ok_or("Open a company or journal first")?;
+        if active.company {
+            company::edit(&active.path, &revision, source_line, source_end, &entry)
+        } else {
+            ledger::edit(&active.path, &revision, source_line, source_end, &entry)
+        }
+    })
+    .await
+}
+#[tauri::command]
 async fn parse_statement(path: String) -> ledger::Result<imports::Parsed> {
     blocking(move || imports::read(&PathBuf::from(path))).await
 }
@@ -353,6 +373,7 @@ pub fn run() {
             copy_company,
             refresh_journal,
             add_entry,
+            edit_entry,
             parse_statement,
             review_statement,
             import_statement,

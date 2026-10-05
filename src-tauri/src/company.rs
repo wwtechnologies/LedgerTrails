@@ -186,6 +186,17 @@ pub fn append(path: &Path, expected: &str, entry: &ledger::Entry) -> Result<()> 
     let text = ledger::entry_text(entry)?;
     update(path, expected, |_| Ok((text, ())))
 }
+pub fn edit(
+    path: &Path,
+    expected: &str,
+    start: usize,
+    end: usize,
+    entry: &ledger::Entry,
+) -> Result<()> {
+    rewrite(path, expected, |journal| {
+        Ok((ledger::replace_entry(journal, start, end, entry)?, ()))
+    })
+}
 pub(crate) fn journal_text(path: &Path, expected: &str) -> Result<String> {
     Ok(decode(&current(path, expected)?)?.journal)
 }
@@ -325,6 +336,52 @@ mod tests {
         append(&destination, &restored.revision, &entry()).unwrap();
         assert_eq!(snapshot(&backup).unwrap().transactions.len(), 6);
         assert_eq!(snapshot(&destination).unwrap().transactions.len(), 7);
+    }
+    #[test]
+    fn edit_preserves_company_backup_and_rejects_stale_revision() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("company.bky");
+        let before = create(&path, details(), true, None).unwrap();
+        let selected = before
+            .transactions
+            .iter()
+            .find(|t| t.description == "Office supplies")
+            .unwrap();
+        let mut changed = entry();
+        changed.description = "New office supplies".into();
+        edit(
+            &path,
+            &before.revision,
+            selected.source_line.unwrap(),
+            selected.source_end.unwrap(),
+            &changed,
+        )
+        .unwrap();
+        let after = snapshot(&path).unwrap();
+        assert!(after
+            .transactions
+            .iter()
+            .any(|t| t.description == "New office supplies"));
+        assert!(after
+            .transactions
+            .iter()
+            .any(|t| t.description == "Client payment"));
+        let backup = dir
+            .path()
+            .join("company.bky.backups")
+            .join(format!("{}.bkybk", before.revision));
+        assert_eq!(
+            snapshot(&backup).unwrap().transactions.len(),
+            before.transactions.len()
+        );
+        assert!(edit(
+            &path,
+            &before.revision,
+            selected.source_line.unwrap(),
+            selected.source_end.unwrap(),
+            &changed
+        )
+        .is_err());
     }
     #[test]
     fn invalid_uploads_do_not_create_or_replace_files() {

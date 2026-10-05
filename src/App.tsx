@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import Decimal from "decimal.js";
 import { isTauri } from "@tauri-apps/api/core";
 import { invoke } from "./backend";
 import { open, save } from "@tauri-apps/plugin-dialog";
@@ -28,6 +29,7 @@ import {
 import {
   Amount,
   Entry,
+  Transaction,
   Snapshot,
   CompanyDetails,
   formatAmount,
@@ -72,6 +74,22 @@ function Money({ amounts }: { amounts: Amount[] }) {
     </>
   );
 }
+function transactionEntry(t: Transaction): Entry {
+  const debit =
+    t.postings.find(
+      (p) => p.amounts[0] && new Decimal(p.amounts[0].quantity).isPositive(),
+    ) ?? t.postings[0];
+  const credit = t.postings.find((p) => p !== debit) ?? t.postings[1];
+  const amount = debit.amounts[0] ?? credit.amounts[0];
+  return {
+    date: t.date,
+    description: t.description,
+    debit: debit.account,
+    credit: credit.account,
+    amount: new Decimal(amount.quantity).abs().toString(),
+    commodity: amount.commodity,
+  };
+}
 
 export default function App() {
   const [officeOpen, setOfficeOpen] = useState(false);
@@ -85,6 +103,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<Transaction | null>(null);
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
   const desktop = isTauri();
@@ -285,6 +304,28 @@ export default function App() {
       } catch (e) {
         setError(
           `Saved successfully, but refresh failed: ${e}. Refresh before adding another entry.`,
+        );
+      }
+    });
+  }
+  async function edit(entry: Entry) {
+    if (!books || !editing?.source_line || !editing?.source_end) return;
+    await work(async () => {
+      await invoke("edit_entry", {
+        entry,
+        sourceLine: editing.source_line,
+        sourceEnd: editing.source_end,
+        revision: books.revision,
+      });
+      setEditing(null);
+      setNotice(
+        "Transaction updated. A backup of the previous journal was created.",
+      );
+      try {
+        setBooks(await invoke<Snapshot>("refresh_journal"));
+      } catch (e) {
+        setError(
+          `Saved successfully, but refresh failed: ${e}. Refresh before editing another entry.`,
         );
       }
     });
@@ -822,6 +863,19 @@ export default function App() {
                                 <Money amounts={p.amounts} />
                               </div>
                             ))}
+                            {t.editable && !readOnly && (
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={busy}
+                                onClick={() => {
+                                  setError("");
+                                  setEditing(t);
+                                }}
+                              >
+                                Edit transaction
+                              </button>
+                            )}
                           </div>
                         </details>
                       ))}
@@ -944,12 +998,28 @@ export default function App() {
           onSave={add}
         />
       )}
+      {editing && books && (
+        <EntryDialog
+          key={`${editing.source_line}-${books.revision}`}
+          accounts={books.accounts.map((a) => a.name)}
+          currency={books.company?.currency ?? "USD"}
+          initial={transactionEntry(editing)}
+          busy={busy}
+          error={error}
+          onClose={() => {
+            setEditing(null);
+            setError("");
+          }}
+          onSave={edit}
+        />
+      )}
     </div>
   );
 }
 function EntryDialog({
   accounts,
   currency,
+  initial,
   busy,
   error,
   onClose,
@@ -957,21 +1027,24 @@ function EntryDialog({
 }: {
   accounts: string[];
   currency: string;
+  initial?: Entry;
   busy: boolean;
   error: string;
   onClose: () => void;
   onSave: (e: Entry) => Promise<void>;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [entry, setEntry] = useState<Entry>({
-    date: today(),
-    description: "",
-    debit: "expenses:",
-    credit:
-      accounts.find((a) => a.startsWith("assets:")) ?? "assets:bank:checking",
-    amount: "",
-    commodity: currency,
-  });
+  const [entry, setEntry] = useState<Entry>(
+    initial ?? {
+      date: today(),
+      description: "",
+      debit: "expenses:",
+      credit:
+        accounts.find((a) => a.startsWith("assets:")) ?? "assets:bank:checking",
+      amount: "",
+      commodity: currency,
+    },
+  );
   useEffect(() => {
     ref.current?.showModal();
   }, []);
@@ -994,7 +1067,7 @@ function EntryDialog({
         <div className="dialog-heading">
           <div>
             <div className="eyebrow">KEEP YOUR BOOKS CURRENT</div>
-            <h2>Add a transaction</h2>
+            <h2>{initial ? "Edit transaction" : "Add a transaction"}</h2>
           </div>
           <button
             type="button"
@@ -1007,7 +1080,9 @@ function EntryDialog({
           </button>
         </div>
         <p className="dialog-intro">
-          Record a balanced entry between two accounts.
+          {initial
+            ? "Update the date, description, accounts, or amount."
+            : "Record a balanced entry between two accounts."}
         </p>
         {error && (
           <div className="banner error" role="alert">
@@ -1093,7 +1168,11 @@ function EntryDialog({
             Cancel
           </button>
           <button className="primary" disabled={busy}>
-            {busy ? "Validating…" : "Save transaction"}
+            {busy
+              ? "Validating…"
+              : initial
+                ? "Save changes"
+                : "Save transaction"}
           </button>
         </div>
       </form>

@@ -5,6 +5,7 @@ const shared = new Set([
   "refresh_journal",
   "save_company",
   "add_entry",
+  "edit_entry",
   "review_statement",
   "import_statement",
   "list_review",

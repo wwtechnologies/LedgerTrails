@@ -41,6 +41,39 @@ test("opening a local company uses the company backend and shows its name", asyn
   });
   expect(screen.getAllByText("Sample Company").length).toBeGreaterThan(0);
 });
+test("edits a selected transaction with its source location and revision", async () => {
+  const editable = {
+    ...current,
+    transactions: current.transactions.map((t, i) =>
+      i === 2 ? { ...t, editable: true, source_line: 12, source_end: 15 } : t,
+    ),
+  };
+  mocks.open.mockResolvedValueOnce(current.path);
+  mocks.invoke.mockResolvedValueOnce(editable);
+  render(<App />);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Open company", exact: true }),
+  );
+  await screen.findByText("Office supplies");
+  fireEvent.click(screen.getByText("Office supplies"));
+  fireEvent.click(screen.getByRole("button", { name: "Edit transaction" }));
+  expect(
+    screen.getByRole("heading", { name: "Edit transaction" }),
+  ).toBeInTheDocument();
+  fireEvent.change(screen.getByDisplayValue("Office supplies"), {
+    target: { value: "Office furniture" },
+  });
+  mocks.invoke.mockResolvedValueOnce(null).mockResolvedValueOnce(editable);
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() =>
+    expect(mocks.invoke).toHaveBeenCalledWith("edit_entry", {
+      entry: expect.objectContaining({ description: "Office furniture" }),
+      sourceLine: 12,
+      sourceEnd: 15,
+      revision: "original",
+    }),
+  );
+});
 test("backup preserves active company and adds the .bkybk extension", async () => {
   await openCompany();
   mocks.save.mockResolvedValueOnce("/backups/safe");

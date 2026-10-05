@@ -30,6 +30,9 @@ pub struct Transaction {
     pub date: String,
     pub description: String,
     pub postings: Vec<Posting>,
+    pub source_line: Option<usize>,
+    pub source_end: Option<usize>,
+    pub editable: bool,
 }
 #[derive(Serialize)]
 pub struct Snapshot {
@@ -48,6 +51,89 @@ pub struct Entry {
     pub credit: String,
     pub amount: String,
     pub commodity: String,
+}
+fn plain_posting(line: &str) -> bool {
+    if !line.starts_with("    ") || line.contains(';') {
+        return false;
+    }
+    let parts: Vec<_> = line.split_whitespace().collect();
+    if !matches!(parts.len(), 1 | 3)
+        || !parts[0].split(':').all(|part| {
+            !part.is_empty()
+                && part
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        })
+    {
+        return false;
+    }
+    if parts.len() == 3 {
+        let amount = parts[1].trim_start_matches('-');
+        amount.len() <= 40
+            && amount.split('.').count() <= 2
+            && amount
+                .split('.')
+                .all(|part| !part.is_empty() && part.bytes().all(|c| c.is_ascii_digit()))
+            && !parts[2].is_empty()
+            && parts[2].len() <= 12
+            && parts[2].bytes().all(|c| c.is_ascii_uppercase())
+    } else {
+        true
+    }
+}
+fn editable_span(text: &str, start: usize, end: usize) -> Result<(usize, usize, String)> {
+    let offsets: Vec<usize> = std::iter::once(0)
+        .chain(text.match_indices('\n').map(|(i, _)| i + 1))
+        .collect();
+    if start == 0 || end <= start || end > offsets.len() {
+        return Err("This transaction cannot be edited in LedgerTrails.".into());
+    }
+    let from = offsets[start - 1];
+    let to = offsets[end - 1];
+    let lines: Vec<_> = text[from..to].lines().collect();
+    let first = lines
+        .first()
+        .ok_or("This transaction cannot be edited in LedgerTrails.")?;
+    let comments: Vec<_> = lines
+        .iter()
+        .skip(1)
+        .take_while(|line| line.starts_with("    ;"))
+        .copied()
+        .collect();
+    let postings = &lines[1 + comments.len()..];
+    let header = first.get(11..).unwrap_or("");
+    if postings.len() != 2
+        || chrono::NaiveDate::parse_from_str(first.get(..10).unwrap_or(""), "%Y-%m-%d").is_err()
+        || !first.get(10..11).is_some_and(|s| s == " ")
+        || header.starts_with("* ")
+        || header.starts_with("! ")
+        || header.contains(';')
+        || header.contains('|')
+        || postings.iter().any(|line| !plain_posting(line))
+    {
+        return Err(
+            "This transaction has journal details that require editing in the journal file.".into(),
+        );
+    }
+    let comments = comments.iter().map(|line| format!("{line}\n")).collect();
+    Ok((from, to, comments))
+}
+pub fn replace_entry(text: &str, start: usize, end: usize, entry: &Entry) -> Result<String> {
+    let (from, to, comments) = editable_span(text, start, end)?;
+    let replacement = entry_text(entry)?;
+    let header_end = replacement[1..].find('\n').ok_or("Invalid entry")? + 2;
+    let replacement = format!(
+        "{}{}{}",
+        &replacement[..header_end],
+        comments,
+        &replacement[header_end..]
+    );
+    Ok(format!(
+        "{}{}{}",
+        &text[..from],
+        replacement.trim_start_matches('\n'),
+        &text[to..]
+    ))
 }
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
@@ -158,7 +244,20 @@ pub fn snapshot(path: &Path) -> Result<Snapshot> {
         .ok_or("Invalid transaction report")?
         .iter()
         .map(|t| {
-            let postings = t["tpostings"]
+            let source = t["tsourcepos"].as_array();
+            let start = source
+                .and_then(|s| s.first())
+                .and_then(|p| p["sourceLine"].as_u64())
+                .map(|n| n as usize);
+            let end = source
+                .and_then(|s| s.get(1))
+                .and_then(|p| p["sourceLine"].as_u64())
+                .map(|n| n as usize);
+            let local = source
+                .and_then(|s| s.first())
+                .and_then(|p| p["sourceName"].as_str())
+                == Some(path.to_string_lossy().as_ref());
+            let postings: Vec<Posting> = t["tpostings"]
                 .as_array()
                 .ok_or("Invalid postings")?
                 .iter()
@@ -172,6 +271,17 @@ pub fn snapshot(path: &Path) -> Result<Snapshot> {
             Ok(Transaction {
                 date: string(&t["tdate"])?,
                 description: string(&t["tdescription"])?,
+                editable: local
+                    && postings.len() == 2
+                    && postings.iter().all(|p| p.amounts.len() == 1)
+                    && postings[0].amounts[0].commodity == postings[1].amounts[0].commodity
+                    && postings[0].amounts[0].quantity.starts_with('-')
+                        != postings[1].amounts[0].quantity.starts_with('-')
+                    && start.zip(end).is_some_and(|(a, b)| {
+                        editable_span(&String::from_utf8_lossy(&before), a, b).is_ok()
+                    }),
+                source_line: if local { start } else { None },
+                source_end: if local { end } else { None },
                 postings,
             })
         })
@@ -267,6 +377,28 @@ pub fn append(path: &Path, expected: &str, entry: &Entry) -> Result<()> {
     append_text(path, expected, &text)
 }
 pub(crate) fn append_text(path: &Path, expected: &str, text: &str) -> Result<()> {
+    write_text(path, expected, |original| {
+        let mut updated = original.to_vec();
+        updated.extend_from_slice(text.as_bytes());
+        Ok(updated)
+    })
+}
+pub fn edit(path: &Path, expected: &str, start: usize, end: usize, entry: &Entry) -> Result<()> {
+    write_text(path, expected, |original| {
+        Ok(replace_entry(
+            std::str::from_utf8(original).map_err(err)?,
+            start,
+            end,
+            entry,
+        )?
+        .into_bytes())
+    })
+}
+fn write_text(
+    path: &Path,
+    expected: &str,
+    change: impl FnOnce(&[u8]) -> Result<Vec<u8>>,
+) -> Result<()> {
     let lock_path = PathBuf::from(format!("{}.bky-lock", path.display()));
     let lock = OpenOptions::new()
         .read(true)
@@ -292,8 +424,7 @@ pub(crate) fn append_text(path: &Path, expected: &str, text: &str) -> Result<()>
         .suffix(".journal")
         .tempfile_in(parent)
         .map_err(err)?;
-    candidate.write_all(&original).map_err(err)?;
-    candidate.write_all(text.as_bytes()).map_err(err)?;
+    candidate.write_all(&change(&original)?).map_err(err)?;
     candidate
         .as_file()
         .set_permissions(fs::metadata(path).map_err(err)?.permissions())
@@ -412,6 +543,69 @@ mod tests {
         assert!(append(&path, &before.revision, &entry()).is_err());
         assert_eq!(fs::read(&path).unwrap(), bytes);
         assert!(PathBuf::from(format!("{}.backup-{}", path.display(), before.revision)).exists());
+    }
+    #[test]
+    fn edits_only_selected_transaction_and_rejects_stale_revision() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("books.journal");
+        create(&path, true).unwrap();
+        let before = snapshot(&path).unwrap();
+        let selected = before
+            .transactions
+            .iter()
+            .find(|t| t.description == "Office supplies")
+            .unwrap();
+        assert!(selected.editable);
+        let mut changed = entry();
+        changed.description = "Updated office supplies".into();
+        edit(
+            &path,
+            &before.revision,
+            selected.source_line.unwrap(),
+            selected.source_end.unwrap(),
+            &changed,
+        )
+        .unwrap();
+        let after = snapshot(&path).unwrap();
+        assert_eq!(after.transactions.len(), before.transactions.len());
+        assert!(after
+            .transactions
+            .iter()
+            .any(|t| t.description == "Updated office supplies"));
+        assert!(after
+            .transactions
+            .iter()
+            .any(|t| t.description == "Client payment"));
+        assert!(edit(
+            &path,
+            &before.revision,
+            selected.source_line.unwrap(),
+            selected.source_end.unwrap(),
+            &changed
+        )
+        .is_err());
+        assert!(PathBuf::from(format!("{}.backup-{}", path.display(), before.revision)).exists());
+    }
+    #[test]
+    fn edit_preserves_import_identity_and_other_journal_text() {
+        let original = "2026-10-01 Imported\n    ; booky-import: abc123\n    ; bank-source: [\"original\"]\n    expenses:office  5 USD\n    assets:bank  -5 USD\n\n; separate note\n";
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("imported.journal");
+        fs::write(&path, original).unwrap();
+        let before = snapshot(&path).unwrap();
+        let transaction = &before.transactions[0];
+        assert!(transaction.editable);
+        let updated = replace_entry(
+            original,
+            transaction.source_line.unwrap(),
+            transaction.source_end.unwrap(),
+            &entry(),
+        )
+        .unwrap();
+        assert!(updated.contains("booky-import: abc123"));
+        assert!(updated.contains("bank-source: [\"original\"]"));
+        assert!(updated.contains("; separate note"));
+        assert!(updated.contains("2026-10-04 Coffee"));
     }
     #[test]
     fn validation_failure_preserves_journal() {

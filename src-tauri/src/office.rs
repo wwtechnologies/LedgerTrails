@@ -489,6 +489,16 @@ impl Office {
                     company::append(path, &rev()?, &field::<ledger::Entry>(&a, "entry")?)?;
                     Ok(Value::Null)
                 }
+                "edit_entry" => {
+                    company::edit(
+                        path,
+                        &rev()?,
+                        field(&a, "sourceLine")?,
+                        field(&a, "sourceEnd")?,
+                        &field::<ledger::Entry>(&a, "entry")?,
+                    )?;
+                    Ok(Value::Null)
+                }
                 "read_workspace" => value(workspace::read(path, &rev()?)?),
                 "save_workspace" => {
                     workspace::save(path, &rev()?, field(&a, "value")?)?;
@@ -625,8 +635,8 @@ impl Office {
                 )?;
                 Ok(Value::Null)
             }
-            "add_entry" | "save_company" | "read_workspace" | "save_workspace" | "list_review"
-            | "categorize_review" | "audit" => call(&peer, &command, args),
+            "add_entry" | "edit_entry" | "save_company" | "read_workspace" | "save_workspace"
+            | "list_review" | "categorize_review" | "audit" => call(&peer, &command, args),
             _ => Err("This operation is available on the host computer only".into()),
         }
     }
@@ -932,6 +942,13 @@ mod tests {
             &reader,
             "add_entry",
             entry(snapshot["revision"].as_str().unwrap())
+        )
+        .unwrap_err()
+        .contains("read-only"));
+        assert!(call(
+            &reader,
+            "edit_entry",
+            json!({"revision": snapshot["revision"], "sourceLine": 12, "sourceEnd": 15, "entry": {}}),
         )
         .unwrap_err()
         .contains("read-only"));

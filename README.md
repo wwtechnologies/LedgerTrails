@@ -19,6 +19,7 @@ These are the native LedgerTrails versioned formats, not QuickBooks file formats
 - **Recent books** remembers the last ten successfully opened companies or journals on this machine. Reopen one directly from the welcome screen, or expand Recent books while another company is open. Removing or clearing shortcuts does not delete files. Moved files can be located again with Open company. Only file paths and display names are stored in local app storage; this history is separate from company files and backups.
 - **Open company** opens a local `.bky` file. The picker also supports standalone `.journal`, `.ledger`, and `.hledger` files for existing users.
 - **Save** verifies and flushes the active company file. Submitted transactions already save automatically; unfinished form fields are not saved until submitted.
+- **Edit transaction** appears when an expanded entry has two ordinary postings. Change its date, description, accounts, amount, or currency and save; LedgerTrails validates the result and keeps the previous file as an automatic backup. Imported bank identifiers are preserved so the same statement does not import twice. Entries with multiple postings or advanced journal syntax do not show the edit button.
 - **Save as** saves a separate `.bky` copy and switches to it.
 - **Back up** writes a `.bkybk` snapshot to a chosen location and keeps the active company open.
 - **Restore** opens a local `.bkybk` or `.bky` source and saves it to a new `.bky` destination. It does not modify the source or overwrite an existing company.

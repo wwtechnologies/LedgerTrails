@@ -568,6 +568,9 @@ h2 {
   background: #f7faf7;
   padding: 10px 20px;
 }
+.postings > button {
+  margin-top: 12px;
+}
 .postings > div {
   display: flex;
   justify-content: space-between;
