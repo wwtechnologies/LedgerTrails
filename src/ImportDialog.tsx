@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./backend";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FileUp, Search, ShieldCheck, X } from "lucide-react";
 import Decimal from "decimal.js";

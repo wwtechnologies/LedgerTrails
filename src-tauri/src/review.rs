@@ -132,10 +132,15 @@ mod tests {
         .is_err());
         let next = company::snapshot(&p).unwrap();
         let result = company::journal_text(&p, &next.revision).unwrap();
-        assert_eq!(
-            result,
-            journal.replace("equity:needs-review:checks", "expenses:office")
-        );
+        let expected = journal.replace("equity:needs-review:checks", "expenses:office");
+        assert!(result.starts_with(&expected));
+        let audit = result[expected.len()..]
+            .trim()
+            .strip_prefix("; ledgertrails-audit: ")
+            .unwrap();
+        let audit: serde_json::Value = serde_json::from_str(audit).unwrap();
+        assert_eq!(audit["previous_revision"], s.revision);
+        assert_eq!(audit["actor"], "Host computer");
         assert_eq!(next.transactions.len(), 1);
     }
 }

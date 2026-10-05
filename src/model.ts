@@ -22,6 +22,7 @@ export interface CompanyDetails {
   currency: string;
 }
 export interface Snapshot {
+  office?: { address: string; name: string; role: "reader" | "editor" };
   company?: CompanyDetails | null;
   path: string;
   revision: string;

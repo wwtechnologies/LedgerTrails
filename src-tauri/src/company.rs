@@ -23,6 +23,28 @@ struct Document {
     company: Details,
     journal: String,
 }
+thread_local! { static ACTOR: std::cell::RefCell<Option<(String, String)>> = const { std::cell::RefCell::new(None) }; }
+pub(crate) fn as_actor<T>(name: &str, action: &str, f: impl FnOnce() -> Result<T>) -> Result<T> {
+    struct Reset(Option<(String, String)>);
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            ACTOR.with(|actor| {
+                *actor.borrow_mut() = self.0.take();
+            });
+        }
+    }
+    let _reset = Reset(ACTOR.with(|actor| actor.replace(Some((name.into(), action.into())))));
+    f()
+}
+fn audit_record(revision: &str) -> String {
+    let (actor, action) = ACTOR
+        .with(|a| a.borrow().clone())
+        .unwrap_or_else(|| ("Host computer".into(), "local change".into()));
+    format!(
+        "; ledgertrails-audit: {}\n",
+        serde_json::json!({"at": chrono::Utc::now().to_rfc3339(), "actor": actor, "action": action, "previous_revision": revision})
+    )
+}
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
@@ -130,7 +152,15 @@ pub fn create(
     new_file(path, &bytes)?;
     Ok(snapshot)
 }
-fn lock(path: &Path) -> Result<File> {
+struct CompanyLock(File);
+impl Drop for CompanyLock {
+    fn drop(&mut self) {
+        // Release explicitly: a concurrently spawned child may briefly inherit
+        // the file description before exec closes it, delaying close-only unlock.
+        let _ = FileExt::unlock(&self.0);
+    }
+}
+fn lock(path: &Path) -> Result<CompanyLock> {
     let lock = OpenOptions::new()
         .read(true)
         .write(true)
@@ -141,7 +171,7 @@ fn lock(path: &Path) -> Result<File> {
     lock.try_lock_exclusive().map_err(|_| {
         "Another LedgerTrails operation is using this company file. Try again.".to_string()
     })?;
-    Ok(lock)
+    Ok(CompanyLock(lock))
 }
 fn current(path: &Path, expected: &str) -> Result<Vec<u8>> {
     let bytes = fs::read(path).map_err(err)?;
@@ -180,10 +210,12 @@ pub(crate) fn rewrite<T>(
     let _lock = lock(path)?;
     let original = current(path, expected)?;
     let mut document = decode(&original)?;
-    let (text, outcome) = changes(&document.journal)?;
+    let (mut text, outcome) = changes(&document.journal)?;
     if text.is_empty() {
         return Ok(outcome);
     }
+    text.push('\n');
+    text.push_str(&audit_record(expected));
     let (_temp, journal) = journal(&document)?;
 
     fs::write(&journal, &text).map_err(err)?;

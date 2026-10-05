@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./backend";
 import type { Snapshot } from "./model";
 interface Row {
   line: number;
@@ -103,7 +103,7 @@ export default function ReviewPage({
             <input
               aria-label="Search review transactions"
               value={query}
-              disabled={busy}
+              disabled={books.office?.role === "reader" || busy}
               onChange={(e) => {
                 setQuery(e.target.value);
                 setSelected([]);
@@ -118,7 +118,7 @@ export default function ReviewPage({
                 aria-label="Review category"
                 list="review-categories"
                 value={category}
-                disabled={busy}
+                disabled={books.office?.role === "reader" || busy}
                 onChange={(e) => setCategory(e.target.value)}
                 placeholder="expenses:office or equity:owner-draws"
               />
@@ -143,7 +143,13 @@ export default function ReviewPage({
             </datalist>
             <button
               className="primary"
-              disabled={busy || loading || !selected.length || !category.trim()}
+              disabled={
+                books.office?.role === "reader" ||
+                busy ||
+                loading ||
+                !selected.length ||
+                !category.trim()
+              }
               onClick={save}
             >
               {busy
@@ -162,7 +168,11 @@ export default function ReviewPage({
                       <input
                         type="checkbox"
                         aria-label="Select all visible transactions"
-                        disabled={busy || !visible.length}
+                        disabled={
+                          books.office?.role === "reader" ||
+                          busy ||
+                          !visible.length
+                        }
                         checked={
                           !!visible.length &&
                           visible.every((r) => selected.includes(r.line))
@@ -186,7 +196,7 @@ export default function ReviewPage({
                         <input
                           type="checkbox"
                           aria-label={`Select ${r.description} on ${r.date}`}
-                          disabled={busy}
+                          disabled={books.office?.role === "reader" || busy}
                           checked={selected.includes(r.line)}
                           onChange={(e) =>
                             setSelected(

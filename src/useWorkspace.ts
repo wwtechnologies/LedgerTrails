@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./backend";
 import { save as chooseSave } from "@tauri-apps/plugin-dialog";
 import type { Snapshot } from "./model";
 import { emptyWorkspace, type Workspace } from "./workspace";
@@ -37,6 +37,10 @@ export function useWorkspace(
     };
   }, [books.path, books.revision, desktop]);
   async function persist(next: Workspace) {
+    if (books.office?.role === "reader") {
+      setError("This office connection is read-only.");
+      return false;
+    }
     setSaving(true);
     setError("");
     setNotice("");

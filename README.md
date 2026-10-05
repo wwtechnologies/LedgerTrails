@@ -40,6 +40,30 @@ npm run tauri dev
 
 `npm run dev` starts a browser-only preview with fictional sample data. Native file dialogs and saving require the desktop app. Set `LEDGERTRAILS_HLEDGER` to an absolute executable path if hledger is not on PATH. A bundled executable takes precedence.
 
+## Office network mode
+
+Office hosting is optional and off by default. Use **Office network** in the desktop app to share one company with coworkers on the same private IPv4 network. Each computer needs a LedgerTrails build with this feature; the original 0.1.0 release predates it.
+
+On the host computer:
+
+1. Create or open the company normally. Keep the working `.bky` file on the host's local disk, with space for its automatic backups.
+2. Open **Office network**, choose **Company to share**, and check the computer's private IPv4 address and TCP port (default `47831`). The suggested address may need changing on computers with several network interfaces.
+3. Click **Enable hosting**. Allow inbound TCP connections to that port from your office subnet using your operating system's firewall. LedgerTrails does not change firewall rules or router settings. Reserve the host's address in your router so it stays the same.
+4. Create a named access code for each coworker, selecting **Editor** or **Read-only**, and transfer that code privately. The code is a credential: anyone possessing it has that coworker's access until revoked.
+
+On each workstation, open **Office network**, paste the code, and select **Connect**. The connection is remembered on that computer; use **Reconnect** next time. Opening a local company returns to local mode. You do not mount a network drive or browse the host's files.
+
+Hosting resumes when the host opens LedgerTrails, until **Turn off hosting** is selected. The host computer must remain awake and the app must remain running. This is an in-app server, not an installed background service: it does not start at OS boot or keep serving after the app closes. Use **Refresh server status** if the state changes outside the setup dialog. Address, port, or shared-company changes invalidate old codes; generate replacement codes afterward. **Revoke** removes a coworker's access without changing the company.
+
+### Shared work and permissions
+
+- Editor connections can add transactions, import workstation CSV files (up to 5 MB), categorize entries, and save reporting and tax workspaces. Read-only connections can view reports and download backups or exports. Permission checks run on the server.
+- Saves are serialized by the server and use the existing file locks, revision checks, validation, and automatic backups. If someone saved after you loaded the company, your stale save is rejected. **Refresh**, review the latest books, and reapply the intended change. There is no automatic merge or live refresh of unsaved forms.
+- CSVs are uploaded as content and processed in temporary files. Remote clients cannot choose host filesystem paths or open other host companies. Creating/restoring companies is a local operation. **Back up** downloads a copy to the workstation; **Save as** downloads and switches to a separate local company.
+- Successful company changes include an audit comment with the access-code name (or `Host computer` for local edits), operation, UTC time, and previous revision. **View recent changes** / **View host company changes** shows the latest 100. This history travels with the company and backups; it is not tamper-proof against someone who can edit the company file directly.
+- Connections use HTTPS with the host certificate carried in the access code. Clients trust that certificate, reject redirects, and do not fall back to HTTP. The host stores hashes of access tokens; paired workstations store their token in app configuration. On Unix, the configuration directory and secret files are restricted to the current OS user. Protect the host and workstation OS accounts.
+- This mode is for a private office LAN, not internet hosting. Do not forward its port from your router. It currently supports one shared company per host, individual access codes rather than passwords, and manual refresh. It has been tested with real HTTPS clients on one machine; a separate-workstation/firewall test is still required in your office.
+
 ## Accounting features
 
 - Net worth, income, expenses, and account balances, separately by commodity.

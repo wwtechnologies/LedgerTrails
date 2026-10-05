@@ -275,8 +275,9 @@ pub(crate) fn append_text(path: &Path, expected: &str, text: &str) -> Result<()>
         .truncate(false)
         .open(lock_path)
         .map_err(err)?;
-    lock.try_lock_exclusive()
-        .map_err(|_| "Another LedgerTrails operation is writing this journal. Try again.".to_string())?;
+    lock.try_lock_exclusive().map_err(|_| {
+        "Another LedgerTrails operation is writing this journal. Try again.".to_string()
+    })?;
     let original = fs::read(path).map_err(err)?;
     if revision(&original) != expected {
         return Err("Journal changed since it was loaded. Refresh before saving.".into());

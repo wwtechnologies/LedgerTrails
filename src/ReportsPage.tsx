@@ -154,6 +154,7 @@ export default function ReportsPage({
           value={workspace.value}
           persist={workspace.persist}
           disabled={
+            books.office?.role === "reader" ||
             workspace.loading ||
             workspace.saving ||
             !!workspace.error ||

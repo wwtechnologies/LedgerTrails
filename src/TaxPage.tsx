@@ -64,6 +64,7 @@ export default function TaxPage({
     packet = taxPacket(books, period, tax, workspace.value),
     form = formLinks[tax.entity];
   const disabled =
+    books.office?.role === "reader" ||
     workspace.loading ||
     workspace.saving ||
     !!workspace.error ||
@@ -216,8 +217,9 @@ export default function TaxPage({
       <div className="tax-callout">
         <strong>Preparation workspace</strong>
         <p>
-          LedgerTrails provides planning estimates and organizes your tax records. It
-          does not file returns or calculate final liability. Start with{" "}
+          LedgerTrails provides planning estimates and organizes your tax
+          records. It does not file returns or calculate final liability. Start
+          with{" "}
           <a href={form.url} target="_blank" rel="noreferrer">
             {form.name}
           </a>

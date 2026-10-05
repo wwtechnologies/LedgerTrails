@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { isTauri } from "@tauri-apps/api/core";
+import { invoke } from "./backend";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import {
   ArrowDownLeft,
@@ -35,6 +36,7 @@ import {
 } from "./model";
 import "./App.css";
 import sample from "./sample.json";
+import OfficeNetwork from "./OfficeNetwork";
 import ReportsPage from "./ReportsPage";
 import TaxPage from "./TaxPage";
 import "./Finance.css";
@@ -72,6 +74,7 @@ function Money({ amounts }: { amounts: Amount[] }) {
 }
 
 export default function App() {
+  const [officeOpen, setOfficeOpen] = useState(false);
   const [books, setBooks] = useState<Snapshot | null>(null);
   const [view, setView] = useState<
     "Overview" | "Transactions" | "Accounts" | "Review" | "Reports" | "Tax"
@@ -85,6 +88,7 @@ export default function App() {
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
   const desktop = isTauri();
+  const readOnly = books?.office?.role === "reader";
   const [recentBooks, setRecentBooks] = useState(() =>
     desktop ? readRecentBooks() : [],
   );
@@ -99,7 +103,8 @@ export default function App() {
   }
   function activateBooks(snapshot: Snapshot) {
     setBooks(snapshot);
-    if (desktop) updateRecentBooks(rememberBook(recentBooks, snapshot));
+    if (desktop && !snapshot.office)
+      updateRecentBooks(rememberBook(recentBooks, snapshot));
   }
   async function openRecent(book: RecentBook) {
     await work(async () => {
@@ -305,6 +310,24 @@ export default function App() {
   ];
   return (
     <div className="app-shell">
+      {officeOpen && (
+        <OfficeNetwork
+          books={books}
+          onClose={() => setOfficeOpen(false)}
+          beforeConnect={() =>
+            !taxDirty ||
+            window.confirm("Discard unsaved tax workspace changes?")
+          }
+          onConnected={(snapshot) => {
+            setTaxDirty(false);
+            setBooks(snapshot);
+            setQuery("");
+            setView("Overview");
+            setError("");
+            setNotice("");
+          }}
+        />
+      )}
       <aside className="sidebar">
         <a
           className="brand"
@@ -363,7 +386,12 @@ export default function App() {
           <div className="local-note">
             <ShieldCheck size={18} />
             <div>
-              Local by design<small>Your company stays on your computer.</small>
+              Local by design
+              <small>
+                {books?.office
+                  ? "Your company stays on the office host."
+                  : "Your company stays on your computer."}
+              </small>
             </div>
           </div>
           <span className="engine">
@@ -378,8 +406,22 @@ export default function App() {
             <strong>{view}</strong>
           </span>
           <span className="local-badge">
-            <i /> {desktop ? "On your computer" : "Browser preview"}
+            <i />{" "}
+            {books?.office
+              ? `Office · ${books.office.address}`
+              : desktop
+                ? "On your computer"
+                : "Browser preview"}
           </span>
+          {desktop && (
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() => setOfficeOpen(true)}
+            >
+              Office network
+            </button>
+          )}
         </header>
         <div className="content">
           <div className="page-heading">
@@ -399,7 +441,7 @@ export default function App() {
             {books && (
               <button
                 className="primary"
-                disabled={busy || !desktop}
+                disabled={busy || !desktop || readOnly}
                 onClick={() => {
                   setError("");
                   setAdding(true);
@@ -410,6 +452,14 @@ export default function App() {
               </button>
             )}
           </div>
+          {books?.office && (
+            <div className="banner">
+              Connected as {books.office.name} ·{" "}
+              {readOnly ? "Read-only access" : "Editor access"}. Refresh to see
+              other users’ changes. If a save reports a conflict, refresh and
+              review before trying again.
+            </div>
+          )}
           {!desktop && (
             <div className="banner">
               <CircleHelp size={18} />
@@ -583,7 +633,7 @@ export default function App() {
                     <>
                       <button
                         className="primary"
-                        disabled={busy || !desktop}
+                        disabled={busy || !desktop || readOnly}
                         onClick={() => {
                           setError("");
                           setImporting(true);

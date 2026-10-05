@@ -1,6 +1,7 @@
 mod company;
 mod imports;
 mod ledger;
+mod office;
 mod review;
 mod workspace;
 use std::{
@@ -309,34 +310,38 @@ async fn export_document(
 ) -> ledger::Result<()> {
     let books = state.inner().clone();
     blocking(move || {
-        use std::io::Write;
         let selected = books.0.lock().map_err(|e| e.to_string())?;
         let active = selected.as_ref().ok_or("Open books first")?;
         if active.snapshot()?.revision != revision {
             return Err("Company changed. Refresh before exporting.".into());
         }
-        let path = PathBuf::from(path);
-        let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
-        if !["html", "csv"].contains(&ext) || content.len() > 20_000_000 {
-            return Err("Choose an HTML or CSV destination (maximum 20 MB)".into());
-        }
-        let mut temp =
-            tempfile::NamedTempFile::new_in(path.parent().ok_or("Choose a destination folder")?)
-                .map_err(|e| e.to_string())?;
-        temp.write_all(content.as_bytes())
-            .map_err(|e| e.to_string())?;
-        temp.as_file().sync_all().map_err(|e| e.to_string())?;
-        temp.persist_noclobber(path)
-            .map_err(|e| format!("Export not saved; choose a new filename: {e}"))?;
-        Ok(())
+        write_export(&path, &content)
     })
     .await
+}
+fn write_export(path: &str, content: &str) -> ledger::Result<()> {
+    use std::io::Write;
+    let path = PathBuf::from(path);
+    let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+    if !["html", "csv"].contains(&ext) || content.len() > 20_000_000 {
+        return Err("Choose an HTML or CSV destination (maximum 20 MB)".into());
+    }
+    let mut temp =
+        tempfile::NamedTempFile::new_in(path.parent().ok_or("Choose a destination folder")?)
+            .map_err(|e| e.to_string())?;
+    temp.write_all(content.as_bytes())
+        .map_err(|e| e.to_string())?;
+    temp.as_file().sync_all().map_err(|e| e.to_string())?;
+    temp.persist_noclobber(path)
+        .map_err(|e| format!("Export not saved; choose a new filename: {e}"))?;
+    Ok(())
 }
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Books::default())
+        .setup(office::setup)
         .invoke_handler(tauri::generate_handler![
             open_journal,
             open_company,
@@ -353,7 +358,16 @@ pub fn run() {
             categorize_review,
             read_workspace,
             save_workspace,
-            export_document
+            export_document,
+            office::office_status,
+            office::office_history,
+            office::office_configure,
+            office::office_start,
+            office::office_stop,
+            office::office_invite,
+            office::office_revoke,
+            office::office_connect,
+            office::office_request
         ])
         .run(tauri::generate_context!())
         .expect("error while running LedgerTrails");

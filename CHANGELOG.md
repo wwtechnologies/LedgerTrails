@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Optional office hosting with encrypted, certificate-pinned connections,
+  named revocable editor/read-only access codes, shared company operations,
+  local exports and backups, conflict detection, and company change history.
+- Office setup, remembered connections, and host startup when the app opens.
 - Recent books remembers the last ten opened companies and journals on this
   machine, with direct reopening and controls to remove or clear shortcuts.
 
