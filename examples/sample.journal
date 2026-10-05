@@ -1,0 +1,22 @@
+; Fictional sample data for Booky. USD only.
+2026-10-01 Opening balances
+    assets:bank:checking          8200.00 USD
+    assets:bank:savings          15000.00 USD
+    liabilities:credit-card     -640.00 USD
+    equity:opening-balances
+
+2026-10-02 Client payment
+    assets:bank:checking          3200.00 USD
+    income:consulting
+
+2026-10-02 Office supplies
+    expenses:office                86.45 USD
+    assets:bank:checking
+
+2026-10-03 Software subscription
+    expenses:software              29.00 USD
+    liabilities:credit-card
+
+2026-10-04 Internet
+    expenses:utilities             79.99 USD
+    assets:bank:checking

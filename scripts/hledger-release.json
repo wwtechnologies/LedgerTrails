@@ -1,0 +1,21 @@
+{
+  "version": "1.52.1",
+  "assets": {
+    "hledger-linux-x64.tar.gz": {
+      "url": "https://github.com/hledgerorg/hledger/releases/download/1.52.1/hledger-linux-x64.tar.gz",
+      "sha256": "55bff5785d7528b939e4642a21d3c12a75a8095fedc973340b31dfd7367dd7a2"
+    },
+    "hledger-mac-arm64.tar.gz": {
+      "url": "https://github.com/hledgerorg/hledger/releases/download/1.52.1/hledger-mac-arm64.tar.gz",
+      "sha256": "cd2fda01e8b3e5fdd312c4caca2e55c53f3e966747b5ca245838931f9c4a450f"
+    },
+    "hledger-mac-x64.tar.gz": {
+      "url": "https://github.com/hledgerorg/hledger/releases/download/1.52.1/hledger-mac-x64.tar.gz",
+      "sha256": "16e954cbb792fc24b427146df63bed84d9d4490f7bb62b51d824720317dd3037"
+    },
+    "hledger-windows-x64.zip": {
+      "url": "https://github.com/hledgerorg/hledger/releases/download/1.52.1/hledger-windows-x64.zip",
+      "sha256": "a330a86ff8f99cde603d6f3bf6fdd0db4e02892366a7077a9211a0cfa9faed0e"
+    }
+  }
+}

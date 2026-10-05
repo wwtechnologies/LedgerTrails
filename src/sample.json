@@ -1,0 +1,223 @@
+{
+  "path": "Fictional sample.bky",
+  "revision": "preview",
+  "version": "Sample preview \u00b7 read-only",
+  "accounts": [
+    {
+      "name": "assets:bank:checking",
+      "amounts": [
+        {
+          "quantity": "11233.56",
+          "commodity": "USD"
+        }
+      ]
+    },
+    {
+      "name": "assets:bank:savings",
+      "amounts": [
+        {
+          "quantity": "15000.00",
+          "commodity": "USD"
+        }
+      ]
+    },
+    {
+      "name": "equity:opening-balances",
+      "amounts": [
+        {
+          "quantity": "-22560.00",
+          "commodity": "USD"
+        }
+      ]
+    },
+    {
+      "name": "expenses:office",
+      "amounts": [
+        {
+          "quantity": "86.45",
+          "commodity": "USD"
+        }
+      ]
+    },
+    {
+      "name": "expenses:software",
+      "amounts": [
+        {
+          "quantity": "29.00",
+          "commodity": "USD"
+        }
+      ]
+    },
+    {
+      "name": "expenses:utilities",
+      "amounts": [
+        {
+          "quantity": "79.99",
+          "commodity": "USD"
+        }
+      ]
+    },
+    {
+      "name": "income:consulting",
+      "amounts": [
+        {
+          "quantity": "-3200.00",
+          "commodity": "USD"
+        }
+      ]
+    },
+    {
+      "name": "liabilities:credit-card",
+      "amounts": [
+        {
+          "quantity": "-669.00",
+          "commodity": "USD"
+        }
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "date": "2026-10-01",
+      "description": "Opening balances",
+      "postings": [
+        {
+          "account": "assets:bank:checking",
+          "amounts": [
+            {
+              "quantity": "8200.00",
+              "commodity": "USD"
+            }
+          ]
+        },
+        {
+          "account": "assets:bank:savings",
+          "amounts": [
+            {
+              "quantity": "15000.00",
+              "commodity": "USD"
+            }
+          ]
+        },
+        {
+          "account": "liabilities:credit-card",
+          "amounts": [
+            {
+              "quantity": "-640.00",
+              "commodity": "USD"
+            }
+          ]
+        },
+        {
+          "account": "equity:opening-balances",
+          "amounts": [
+            {
+              "quantity": "-22560.00",
+              "commodity": "USD"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-10-02",
+      "description": "Client payment",
+      "postings": [
+        {
+          "account": "assets:bank:checking",
+          "amounts": [
+            {
+              "quantity": "3200.00",
+              "commodity": "USD"
+            }
+          ]
+        },
+        {
+          "account": "income:consulting",
+          "amounts": [
+            {
+              "quantity": "-3200.00",
+              "commodity": "USD"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-10-02",
+      "description": "Office supplies",
+      "postings": [
+        {
+          "account": "expenses:office",
+          "amounts": [
+            {
+              "quantity": "86.45",
+              "commodity": "USD"
+            }
+          ]
+        },
+        {
+          "account": "assets:bank:checking",
+          "amounts": [
+            {
+              "quantity": "-86.45",
+              "commodity": "USD"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-10-03",
+      "description": "Software subscription",
+      "postings": [
+        {
+          "account": "expenses:software",
+          "amounts": [
+            {
+              "quantity": "29.00",
+              "commodity": "USD"
+            }
+          ]
+        },
+        {
+          "account": "liabilities:credit-card",
+          "amounts": [
+            {
+              "quantity": "-29.00",
+              "commodity": "USD"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-10-04",
+      "description": "Internet",
+      "postings": [
+        {
+          "account": "expenses:utilities",
+          "amounts": [
+            {
+              "quantity": "79.99",
+              "commodity": "USD"
+            }
+          ]
+        },
+        {
+          "account": "assets:bank:checking",
+          "amounts": [
+            {
+              "quantity": "-79.99",
+              "commodity": "USD"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "company": {
+    "name": "Sample Company",
+    "currency": "USD"
+  }
+}

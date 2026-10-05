@@ -1,0 +1,43 @@
+{
+  "filing_status": "single",
+  "state": "OK",
+  "ok_resident": true,
+  "profit_source": "ledger",
+  "through": "2025-12-31",
+  "annual_profit": "",
+  "wages": "0",
+  "ss_wages": "0",
+  "medicare_wages": "0",
+  "other_income": "0",
+  "agi_deductions": "0",
+  "deduction_mode": "standard",
+  "federal_deduction": "",
+  "qbi_deduction": "0",
+  "other_deduction": "0",
+  "federal_credits": "0",
+  "refundable_credits": "0",
+  "federal_other_tax": "0",
+  "federal_withholding": "0",
+  "prior_federal_tax": "",
+  "prior_agi": "",
+  "prior_federal_eligible": false,
+  "ok_adjustment": "0",
+  "ok_deduction": "",
+  "ok_exemptions": "1",
+  "ok_credits": "0",
+  "ok_withholding": "0",
+  "prior_ok_tax": "",
+  "prior_ok_eligible": false,
+  "payment_goal": "minimum",
+  "as_of": "2025-12-31",
+  "due_dates": {},
+  "payments": [
+    {
+      "id": "test",
+      "jurisdiction": "federal",
+      "date": "2025-04-15",
+      "amount": "100",
+      "note": "Test payment"
+    }
+  ]
+}
